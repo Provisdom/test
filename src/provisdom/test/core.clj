@@ -2,12 +2,9 @@
   (:require [midje.sweet :refer :all]
             [criterium.core :refer :all]
             [clojure.walk :as wa]
-            [datomic.api :as d]
-            [clojure.test.check.random :as ra]
+            [clojure.test.check.generators :as g]
             [incanter [core :as ic]
              [charts :as ich]]))
-
-(defn speculate [dbi transaction] (:db-after (d/with dbi transaction)))
 
 (defn- wrap-leaves-with-checker [call tree]
   (wa/postwalk (fn [node]
@@ -42,10 +39,6 @@ examples:
             ([expected]
               (test-roughly expected 1e-6 1e-3)))
 
-(def test-rnd-lazy "rnd-lazy for testing" (ra/r))
-(def test-rnd "rnd for testing" (first test-rnd-lazy))
-(def test-rnd-long "rnd-long for testing" (ra/rnd-long test-rnd))
-
 ;;;also mess with Tableau/cars.com-like interface with sliders and multiple
 ;;;   charts on same page showing time
 ;;;also mess with dynamic charts that simulate and perhaps change color
@@ -70,8 +63,8 @@ http://www.jfree.org/jfreechart/api/javadoc/org/jfree/chart/JFreeChart.html"
   [x y &
    {:keys [title x-label y-label legend? series-label points?
            auto-sort-x-data?]
-    :or {x-label "x", y-label "y", series-label "x",
-         auto-sort-x-data? true}}]
+    :or   {x-label           "x", y-label "y", series-label "x",
+           auto-sort-x-data? true}}]
   (ich/xy-plot x y :title title :x-label x-label :y-label y-label
                :legend legend? :series-label series-label :points points?
                :auto-sort auto-sort-x-data?))
@@ -90,7 +83,7 @@ Options:
    :gradient? (default false) -- use gradient on bars"
   [x y &
    {:keys [title x-label y-label legend? series-label density? nbins gradient?]
-    :or {x-label "x", y-label "y", series-label "x", nbins 10}}]
+    :or   {x-label "x", y-label "y", series-label "x", nbins 10}}]
   (ich/scatter-plot x y :title title :x-label x-label :y-label y-label
                     :legend legend? :series-label series-label
                     :density? density? :nbins nbins :gradient? gradient?))
@@ -106,7 +99,7 @@ Options:
    :vertical? (default true)"
   [x y &
    {:keys [title x-label y-label legend? series-label vertical?]
-    :or {x-label "x", y-label "y", series-label "x", vertical? true}}]
+    :or   {x-label "x", y-label "y", series-label "x", vertical? true}}]
   (ich/bar-chart
     x y :title title :x-label x-label :y-label y-label :legend legend?
     :series-label series-label :vertical? vertical?))
@@ -124,7 +117,7 @@ Options:
       :step-size (default (/ (- max-range min-range) 500))"
   [f min-range max-range &
    {:keys [title x-label y-label legend? series-label step-size]
-    :or {x-label "x", y-label "y", series-label "x", vertical? true}}]
+    :or   {x-label "x", y-label "y", series-label "x", vertical? true}}]
   (let [step-size (if step-size step-size (/ (- max-range min-range) 500))]
     (ich/parametric-plot
       f min-range max-range :title title :x-label x-label :y-label y-label
@@ -142,8 +135,8 @@ Options:
       it if not in the ranges specified?"
   [f x-min x-max y-min y-max
    & {:keys [title x-label y-label z-label color? include-zero?]
-      :or {x-label "x", y-label "y", z-label "z", color? true,
-           include-zero? true}}]
+      :or   {x-label       "x", y-label "y", z-label "z", color? true,
+             include-zero? true}}]
   (ich/heat-map f x-min x-max y-min y-max :title title :x-label x-label
                 :y-label y-label :z-label z-label :color? color?
                 :include-zero? include-zero?))
@@ -159,7 +152,7 @@ Options:
     :legend (default false) prints legend
     :series-label (default x expression)"
   [x & {:keys [title x-label y-label legend? series-label nbins density?]
-        :or {x-label "x", y-label "y", series-label "x", nbins 10}}]
+        :or   {x-label "x", y-label "y", series-label "x", nbins 10}}]
   (ich/histogram x :title title :x-label x-label :y-label y-label
                  :legend legend? :series-label series-label :nbins nbins
                  :density density?))
@@ -194,7 +187,7 @@ Options:
          (add-lines (range -3 3 0.05) (pdf-normal (range -3 3 0.05)))
          view)"
   [chart x y & {:keys [series-label points? auto-sort?]
-                :or {series-label "x", auto-sort? true}}]
+                :or   {series-label "x", auto-sort? true}}]
   (ich/add-lines chart x y :series-label series-label :points points?
                  :auto-sort auto-sort?))
 
@@ -206,7 +199,7 @@ Options:
    :series-label (default 'x')
    :step-size (default (/ (- max-range min-range) 500))"
   [chart f min-range max-range & {:keys [series-label step-size]
-                                  :or {series-label "x"}}]
+                                  :or   {series-label "x"}}]
   (let [step-size (if step-size step-size (/ (- max-range min-range) 500))]
     (ich/add-parametric chart f min-range max-range :series-label series-label
                         :step-size step-size)))

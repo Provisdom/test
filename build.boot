@@ -1,22 +1,19 @@
 (set-env!
   :source-paths #{"src" "test"}
   :resource-paths #{"src" "test"}
-  :repositories [["clojars" "http://clojars.org/repo/"]
-                 ["maven-central" "http://repo1.maven.org/maven2/"]
-                 ["my.datomic.com" {:url "https://my.datomic.com/repo"
-                                    :username (System/getenv "DATOMIC_USERNAME")
-                                    :password (System/getenv "DATOMIC_PASSWORD")}]]
   :dependencies '[[adzerk/boot-cljs "1.7.228-1" :scope "test"]
                   [adzerk/boot-cljs-repl "0.3.0" :scope "test"]
                   [adzerk/boot-reload "0.4.4" :scope "test"]
                   [pandeiro/boot-http "0.7.0" :scope "test"]
+                  [boot-gorilla "0.0.1" :scope "test"]
                   [provisdom/boot-tasks "0.4.0" :scope "test"]])
 
 (require
   '[adzerk.boot-cljs :refer :all]
   '[adzerk.boot-reload :refer :all]
   '[provisdom.boot-tasks :refer :all]
-  '[pandeiro.boot-http :refer :all])
+  '[pandeiro.boot-http :refer :all]
+  '[boot-gorilla.core :refer :all])
 
 (set-project-deps!)
 
