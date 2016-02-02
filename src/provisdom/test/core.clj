@@ -31,11 +31,14 @@ examples:
                        (or (and (>= expected (- actual abs))
                                 (<= expected (+ actual abs)))
                            (and (>= expected (- actual (* rel expected)))
-                                (<= expected (+ actual (* rel expected)))))))
+                                (<= expected (+ actual (* rel expected))))
+                           (and (Double/isNaN expected) (Double/isNaN actual)))))
             ([expected abs]
               (checker [actual]
-                       (and (>= expected (- actual abs))
-                            (<= expected (+ actual abs)))))
+                       (or
+                         (and (>= expected (- actual abs))
+                             (<= expected (+ actual abs)))
+                         (and (Double/isNaN expected) (Double/isNaN actual)))))
             ([expected]
               (test-roughly expected 1e-6 1e-3)))
 
