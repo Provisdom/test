@@ -7,4 +7,4 @@
                  [org.clojure/test.check "0.9.0"]
                  [midje "1.8.3" :exclusions [org.clojure/clojure]]
                  [criterium "0.4.3"]
-                 [incanter "1.5.6"]])
+                 [incanter "1.5.7"]])
