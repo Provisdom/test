@@ -28,7 +28,8 @@ examples:
           With one argument, the defaults are abs = 1e-6 and rel = 1e-3."
             ([expected abs rel]
               (checker [actual]
-                       (or (and (>= expected (- actual abs))
+                       (or (and (nil? expected) (nil? actual))
+                           (and (>= expected (- actual abs))
                                 (<= expected (+ actual abs)))
                            (and (>= expected (- actual (* rel expected)))
                                 (<= expected (+ actual (* rel expected))))
@@ -36,6 +37,7 @@ examples:
             ([expected abs]
               (checker [actual]
                        (or
+                         (and (nil? expected) (nil? actual))
                          (and (>= expected (- actual abs))
                              (<= expected (+ actual abs)))
                          (and (Double/isNaN expected) (Double/isNaN actual)))))
