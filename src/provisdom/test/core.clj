@@ -18,8 +18,7 @@
 examples:
    (check-with test-roughly [m/nan m/nan])
    (check-with (test-roughly 1e-5) [1.2564312086572633 0.0])
-   (check-with test-roughly [1.2564312086572633 0.0])
-   (check-with roughly [1.2564312086572633 0.0])"
+   (check-with (test-roughly) [1.2564312086572633 0.0])"
   (wrap-leaves-with-checker call-form tree))
 
 (defchecker test-roughly
