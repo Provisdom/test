@@ -1,38 +1,21 @@
-(set-env!
-  :source-paths #{"src" "test"}
-  :resource-paths #{"src" "test"}
-  :dependencies '[[adzerk/boot-cljs "1.7.228-1" :scope "test"]
-                  [adzerk/boot-cljs-repl "0.3.0" :scope "test"]
-                  [adzerk/boot-reload "0.4.4" :scope "test"]
-                  [pandeiro/boot-http "0.7.0" :scope "test"]
-                  [boot-gorilla "0.0.1" :scope "test"]
-                  [provisdom/boot-tasks "0.4.0" :scope "test"]])
+(def project 'provisdom/test)
+(def version "0.2.0")
 
-(require
-  '[adzerk.boot-cljs :refer :all]
-  '[adzerk.boot-reload :refer :all]
-  '[provisdom.boot-tasks :refer :all]
-  '[pandeiro.boot-http :refer :all]
-  '[boot-gorilla.core :refer :all])
-
-(set-project-deps!)
-
-(default-task-options!)
+(set-env! :resource-paths #{"resources" "src" "test"}
+          :dependencies '[[org.clojure/clojure "1.8.0"]
+                          [provisdom/boot-tasks "0.6.0" :scope "test"]
+                          [adzerk/boot-test "1.1.1" :scope "test"]
+                          [incanter "1.5.7"]])
 
 (task-options!
-  reload {:on-jsload 'allgress.cereus.core/on-jsload})
+  aot {:namespace #{'provisdom.test.core}}
+  pom {:project     project
+       :version     version
+       :description "FIXME: write description"
+       :url         "http://example/FIXME"
+       :scm         {:url "https://github.com/Provisdom/test"}
+       :license     {"Eclipse Public License"
+                     "http://www.eclipse.org/legal/epl-v10.html"}})
 
-(deftask web-dev
-         "Developer workflow for web-component UX."
-         []
-         (comp
-           (asset-paths :asset-paths #{"bower_components" "html"})
-           (serve :dir "target/")
-           (watch)
-           (speak)
-           (reload)
-           #_(cljx)
-           #_(cljs-repl)
-           (cljs)
-           ))
-
+(require '[adzerk.boot-test :refer [test]]
+         '[provisdom.boot-tasks.core :refer [release build]])
