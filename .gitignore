@@ -13,3 +13,4 @@ pom.xml.asc
 *.iml
 .nrepl-history
 project.clj
+.envrc

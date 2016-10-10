@@ -3,11 +3,11 @@
 
 (defmacro is=
   [expected actual]
-  `(is (~'= ~expected ~actual)))
+  `(is (= ~expected ~actual)))
 
 (defmacro is-not
   ([form] `(is-not ~form nil))
-  ([form msg] `(is (~'not ~form) ~msg)))
+  ([form msg] `(is (not ~form) ~msg)))
 
 (defn midje-just
   [expected actual]
@@ -25,8 +25,12 @@
          actual# ~(nth form 2)
          result# (midje-just expected# actual#)]
      (if result#
-       (do-report {:type     :pass :message ~msg
-                   :expected '~form :actual actual#})
-       (do-report {:type     :fail :message ~msg
-                   :expected '~(nth form 1) :actual actual#}))
+       (do-report {:type     :pass
+                   :message  ~msg
+                   :expected '~form
+                   :actual   actual#})
+       (do-report {:type     :fail
+                   :message  ~msg
+                   :expected '~(nth form 1)
+                   :actual   actual#}))
      result#))

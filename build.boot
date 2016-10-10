@@ -1,14 +1,14 @@
 (def project 'provisdom/test)
-(def version "0.2.0")
+(def version "0.2.1")
 
-(set-env! :resource-paths #{"resources" "src" "test"}
-          :dependencies '[[org.clojure/clojure "1.8.0"]
-                          [provisdom/boot-tasks "0.6.0" :scope "test"]
+(set-env! :resource-paths #{"src"}
+          :source-paths #{"test"}
+          :dependencies '[[provisdom/boot-tasks "0.7.0" :scope "test"]
                           [adzerk/boot-test "1.1.1" :scope "test"]
-                          [incanter "1.5.7"]])
+                          [incanter "1.5.7" :scope "test"]
+                          [org.clojure/clojure "1.8.0" :scope "provided"]])
 
 (task-options!
-  aot {:namespace #{'provisdom.test.core}}
   pom {:project     project
        :version     version
        :description "FIXME: write description"
@@ -18,4 +18,4 @@
                      "http://www.eclipse.org/legal/epl-v10.html"}})
 
 (require '[adzerk.boot-test :refer [test]]
-         '[provisdom.boot-tasks.core :refer [release build]])
+         '[provisdom.boot-tasks.core :refer [build push-jar]])
