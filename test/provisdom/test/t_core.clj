@@ -4,8 +4,8 @@
 
 (deftest test-macro-expansions
   (are [expected-form quoted-form] (= expected-form (macroexpand-1 quoted-form))
-    `(is (= 1 1)) '(t/is= 1 1)
-    `(is (not false) "some message") '(t/is-not false "some message")))
+    `(is (= 1 1)) `(t/is= 1 1)
+    `(is (not false) "some message") `(t/is-not false "some message")))
 
 (deftest t-midje-just
   (are [e a] (t/midje-just e a)
