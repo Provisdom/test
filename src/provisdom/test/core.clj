@@ -4,12 +4,13 @@
             [clojure.string :as str]))
 
 (defmacro is=
-  [expected actual]
-  `(t/is (= ~expected ~actual)))
+  ([expected actual] `(is= ~expected ~actual nil))
+  ([expected actual msg]
+   `(t/is (~'= ~expected ~actual) ~msg)))
 
 (defmacro is-not
   ([form] `(is-not ~form nil))
-  ([form msg] `(t/is (not ~form) ~msg)))
+  ([form msg] `(t/is (~'not ~form) ~msg)))
 
 (defn midje-just
   [expected actual]
