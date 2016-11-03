@@ -4,7 +4,7 @@
 
 (deftest test-macro-expansions
   (are [expected-form quoted-form] (= expected-form (macroexpand-1 quoted-form))
-    `(is (~'= 1 1) nil) '(t/is= 1 1 nil)
+    `(is (~'= 1 1) nil) `(t/is= 1 1 nil)
     `(is (~'not false) "some message") `(t/is-not false "some message")))
 
 (deftest t-midje-just
