@@ -1,6 +1,9 @@
 (ns provisdom.test.t-core
-  (:require [clojure.test :refer :all]
-            [provisdom.test.core :as t]))
+  (:require
+    [clojure.test :refer :all]
+    [clojure.spec :as s]
+    [clojure.spec.test :as st]
+    [provisdom.test.core :as t]))
 
 (deftest test-macro-expansions
   (are [expected-form quoted-form] (= expected-form (macroexpand-1 quoted-form))

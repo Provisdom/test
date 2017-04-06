@@ -5,7 +5,7 @@
           :source-paths #{"test"}
           :dependencies '[[provisdom/boot-tasks "0.7.0" :scope "test"]
                           [adzerk/boot-test "1.1.1" :scope "test"]
-                          [org.clojure/clojure "1.8.0" :scope "provided"]
+                          [org.clojure/clojure "1.9.0-alpha15" :scope "provided"]
                           [incanter "1.5.7"]
                           [criterium "0.4.4"]
                           [midje "1.9.0-alpha5" :exclusions [org.clojure/clojure]]
