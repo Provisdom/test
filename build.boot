@@ -3,7 +3,7 @@
 
 (set-env! :resource-paths #{"src"}
           :source-paths #{"test"}
-          :dependencies '[[provisdom/boot-tasks "1.1" :scope "test"]
+          :dependencies '[[provisdom/boot-tasks "1.2" :scope "test"]
                           [adzerk/boot-test "1.2.0" :scope "test"]
                           [org.clojure/clojure "1.9.0-alpha15" :scope "provided"]
                           [incanter "1.5.7"]
