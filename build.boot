@@ -1,11 +1,12 @@
 (def project 'provisdom/test)
-(def version "0.2.4")
+(def version "0.3.0")
 
 (set-env! :resource-paths #{"src"}
           :source-paths #{"test"}
           :dependencies '[[provisdom/boot-tasks "1.2" :scope "test"]
                           [adzerk/boot-test "1.2.0" :scope "test"]
-                          [org.clojure/clojure "1.9.0-alpha15" :scope "provided"]
+                          [org.clojure/clojure "1.9.0-alpha17" :scope "provided"]
+                          [org.clojure/spec.alpha "0.1.109"]
                           [incanter "1.5.7"]
                           [criterium "0.4.4"]
                           [midje "1.9.0-alpha6" :exclusions [org.clojure/clojure]]
