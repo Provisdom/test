@@ -1,8 +1,8 @@
 (ns provisdom.test.t-core
   (:require
     [clojure.test :refer :all]
-    [clojure.spec :as s]
-    [clojure.spec.test :as st]
+    [clojure.spec.alpha :as s]
+    [clojure.spec.test.alpha :as st]
     [provisdom.test.core :as t]))
 
 (deftest test-macro-expansions
