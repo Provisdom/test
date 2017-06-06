@@ -1,7 +1,8 @@
 (ns provisdom.test.core
-  (:require [clojure.test :as t]
-            [clojure.pprint :as pprint]
-            [clojure.string :as str]))
+  (:require
+    [clojure.test :as t]
+    [clojure.string :as str]
+    [clojure.spec.alpha :as s]))
 
 (defmacro is=
   ([expected actual] `(is= ~expected ~actual nil))
@@ -49,13 +50,21 @@
                         :message (str "Generative tests pass for "
                                       (str/join ", " (map :sym check-results#)))})
           (doseq [failed-check# (filter :failure check-results#)
-                  :let [r# (clojure.spec.test.alpha/abbrev-result failed-check#)
-                        failure# (:failure r#)]]
+                  :let [sym# (:sym failed-check#)
+                        abbrev# (clojure.spec.test.alpha/abbrev-result failed-check#)
+                        failure# (:failure abbrev#)
+                        m# {:type    :fail
+                            :message (str "generative Spec tests in " sym# " failed.\n")}]]
             (t/do-report
-              {:type     :fail
-               :message  (with-out-str (clojure.spec.alpha/explain-out failure#))
-               :expected (->> r# :spec rest (apply hash-map) :ret)
-               :actual   (if (instance? Throwable failure#)
-                           failure#
-                           (:clojure.spec.test/val failure#))})))
+              (if (instance? Throwable failure#)
+                (-> m#
+                    (assoc :expected (->> abbrev# :spec rest (apply hash-map) :ret)
+                           :actual failure#)
+                    (update :message str (str (.getCause failure#))))
+                (let [data# (ex-data (:failure failed-check#))
+                      expected# (get-in data# [::s/problems 0 :pred])
+                      actual# (get-in data# [::s/problems 0 :val])]
+                  (-> m#
+                      (assoc :expected expected#
+                             :actual actual#)))))))
         checks-passed?#))))
