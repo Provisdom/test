@@ -16,3 +16,13 @@
     [1 1 #(and (number? %) (not (== % %)))] [1 1 Double/NaN])
   (are [e a] (not (t/midje-just e a))
     [1 1 1] [1 1 1.0]))
+
+(defn my-add
+  [x y]
+  (+ x y))
+
+(s/fdef my-add
+        :args (s/cat :x number? :y number?)
+        :ret number?)
+
+(t/defspec-test test-my-add `my-add)
