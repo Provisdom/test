@@ -52,7 +52,7 @@
           (doseq [failed-check# (filter :failure check-results#)
                   :let [sym# (:sym failed-check#)
                         abbrev# (clojure.spec.test.alpha/abbrev-result failed-check#)
-                        failure# (:failure abbrev#)
+                        failure# ^Throwable (:failure abbrev#)
                         m# {:type    :fail
                             :message (str "generative Spec tests in " sym# " failed.\n")}]]
             (t/do-report
