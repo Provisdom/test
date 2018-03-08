@@ -1,5 +1,5 @@
 (def project 'provisdom/test)
-(def version "0.3.4")
+(def version "0.3.5")
 
 (set-env! :resource-paths #{"src"}
           :source-paths #{"test"}

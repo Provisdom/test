@@ -89,11 +89,9 @@
 
 (defn- fully-qualified-namespace
   [sym]
-  (if (qualified-symbol? sym)
-    sym
-    (let [metadata (meta (resolve sym))]
-      (when metadata
-        (symbol (str (:ns metadata)) (str (:name metadata)))))))
+  (let [metadata (meta (resolve sym))]
+    (when metadata
+      (symbol (str (:ns metadata)) (str (:name metadata))))))
 
 (defmethod t/assert-expr 'spec-check
   [msg form]
