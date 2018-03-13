@@ -1,4 +1,4 @@
-(ns provisdom.test.t-core
+(ns provisdom.test.core-test
   (:require
     [clojure.test :refer :all]
     [clojure.spec.alpha :as s]
