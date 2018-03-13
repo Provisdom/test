@@ -53,6 +53,10 @@
     (update base-opts :clojure.spec.test.check/opts
             (fn [stc-opts] (merge stc-opts (:test-check base-opts))))))
 
+(defn fspec-data
+  [sym]
+  (apply hash-map (rest (s/form (s/get-spec sym)))))
+
 ;; must be done at compile time for correct line number resolution
 (defmacro do-spec-check-report
   [sym-or-syms opts]
@@ -67,24 +71,27 @@
        (t/do-report {:type    :pass
                      :message (str "Generative tests pass for "
                                    (str/join ", " (map :sym check-results#)))})
-       (doseq [failed-check# (filter :failure check-results#)
-               :let [sym# (:sym failed-check#)
-                     abbrev# (st/abbrev-result failed-check#)
-                     failure# ^Throwable (:failure abbrev#)
-                     m# {:type    :fail
-                         :message (str "generative Spec tests in " sym# " failed.\n")}]]
+       (let [failed-check# (first (filter #(contains? % :failure) check-results#))
+             sym# (:sym failed-check#)
+             thrown-ex# (if-let [failure# (get-in failed-check# [:clojure.spec.test.check/ret :result])]
+                          failure#
+                          (get-in failed-check# [:clojure.spec.test.check/ret :result-data :clojure.test.check.properties/error]))
+             passed-args# (-> failed-check# (get-in [:clojure.spec.test.check/ret :fail]) (first))
+             explain-data# (-> thrown-ex#
+                               (ex-data)
+                               (assoc ::st/caller sym#))]
          (t/do-report
-           (if (instance? Throwable failure#)
-             (-> m#
-                 (assoc :expected (->> abbrev# :spec rest (apply hash-map) :ret)
-                        :actual failure#)
-                 (update :message str (str (.getCause failure#))))
-             (let [data# (ex-data (:failure failed-check#))
-                   expected# (get-in data# [::s/problems 0 :pred])
-                   actual# (get-in data# [::s/problems 0 :val])]
-               (-> m#
-                   (assoc :expected expected#
-                          :actual actual#)))))))
+           (merge {:type     :fail
+                   :expected (:ret (fspec-data sym#))}
+                  (case (::s/failure explain-data#)
+                    :check-failed {:actual  (if (contains? explain-data# ::s/failure)
+                                              (::s/value explain-data#)
+                                              thrown-ex#)
+                                   :message (format "Function call: \n(%s %s)\n\n"
+                                                    sym#
+                                                    (str/join " " passed-args#))}
+                    {:actual  thrown-ex#
+                     :message (.getMessage thrown-ex#)})))))
      checks-passed?#))
 
 (defn- fully-qualified-namespace

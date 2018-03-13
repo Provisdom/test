@@ -19,11 +19,11 @@
 
 (defn my-add
   [x y]
-  (+ x y))
+  (str (+ x y)))
 
 (s/fdef my-add
         :args (s/cat :x number? :y number?)
-        :ret number?)
+        :ret string?)
 
 (t/defspec-test test-my-add `my-add)
 
