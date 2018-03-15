@@ -91,7 +91,7 @@
                                                     sym#
                                                     (str/join " " passed-args#))}
                     {:actual  thrown-ex#
-                     :message (.getMessage thrown-ex#)})))))
+                     :message (.getMessage ^Throwable thrown-ex#)})))))
      checks-passed?#))
 
 (defn- fully-qualified-namespace
