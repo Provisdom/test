@@ -31,6 +31,8 @@
   []
   (let [n (System/getenv "CIRCLE_BUILD_NUM")]
     (assert n "CIRCLE_BUILD_NUM not set.")
+    (println (System/getenv "CLOJARS_USER"))
+    (println (some? (System/getenv "CLOJARS_PASS")))
     (comp
      (pom :version (str version "." n))
      (jar)
