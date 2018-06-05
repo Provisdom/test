@@ -44,7 +44,7 @@ workflows:
       - deploy:
           context: clojars
           requires:
-            - build
+            - test
           filters:
             branches:
               only:
