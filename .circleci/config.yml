@@ -10,7 +10,7 @@ defaults: &defaults
     BOOT_WATCHERS_DISABLE: "yes"
 
 jobs:
-  build:
+  test:
     <<: *defaults
 
     steps:
@@ -40,7 +40,7 @@ workflows:
   version: 2
   ci-workflow:
     jobs:
-      - build
+      - test
       - deploy:
           context: clojars
           requires:
