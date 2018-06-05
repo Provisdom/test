@@ -5,7 +5,7 @@
           :source-paths #{"test"}
           :repositories #(conj % ["deploy-clojars" {:url      "https://clojars.org/repo"
                                                     :username (System/getenv "CLOJARS_USER")
-                                                    :password (System/getenv "CLOJARS_PASS")}])
+                                                    :password (System/getenv "CLOJARS_PASSWORD")}])
           :dependencies '[[provisdom/boot-tasks "1.4" :scope "test"]
                           [adzerk/boot-test "1.2.0" :scope "test"]
                           [org.clojure/clojure "1.9.0" :scope "provided"]
@@ -31,8 +31,6 @@
   []
   (let [n (System/getenv "CIRCLE_BUILD_NUM")]
     (assert n "CIRCLE_BUILD_NUM not set.")
-    (println (System/getenv "CLOJARS_USER"))
-    (println (some? (System/getenv "CLOJARS_PASS")))
     (comp
      (pom :version (str version "." n))
      (jar)
