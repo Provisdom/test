@@ -1,5 +1,5 @@
 (def project 'provisdom/test)
-(def version "1")
+(def version "2")
 
 (set-env! :resource-paths #{"src"}
           :source-paths #{"test"}
@@ -8,12 +8,9 @@
                                                     :password (System/getenv "CLOJARS_PASSWORD")}])
           :dependencies '[[provisdom/boot-tasks "1.4" :scope "test"]
                           [adzerk/boot-test "1.2.0" :scope "test"]
+                          [org.clojure/test.check "0.10.0-alpha2" :scope "test"]
                           [org.clojure/clojure "1.9.0" :scope "provided"]
-                          [org.clojure/spec.alpha "0.1.143"]
-                          [incanter "1.9.2"]
-                          [criterium "0.4.4"]
-                          [midje "1.9.2-alpha3" :exclusions [org.clojure/clojure]]
-                          [org.clojure/test.check "0.10.0-alpha2"]])
+                          [org.clojure/spec.alpha "0.1.143" :scope "provided"]])
 
 (task-options!
  pom {:project     project
