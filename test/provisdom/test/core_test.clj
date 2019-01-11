@@ -45,9 +45,11 @@
 (deftest data-to-paths-test
   (let [f #'t/data-to-paths]
     (is (= {[:a 0]  1.0
-            [:b :c] 1.0}
-           (f {:a [1.0]
-               :b {:c 1.0}}))
+            [:b :c] 1.0
+            [:set]  #{1 2 3}}
+           (f {:a   [1.0]
+               :b   {:c 1.0}
+               :set #{1 2 3}}))
         "map expansion")
     (is (= {[0] 1.0
             [1] 2.0}
@@ -64,8 +66,10 @@
 
 (deftest data-approx=-test
   (is (t/data-approx=
-        {:a 1.0}
-        {:a 1.0000001}))
+        {:a 1.0
+         :b #{1.0}}
+        {:a 1.0000001
+         :b #{1.0}}))
   (is (t/data-approx=
         {:a 1.0}
         {:a 1.001}

@@ -28,7 +28,7 @@
   [x]
   (letfn [(data-to-paths' [x acc cur-path]
             (cond
-              (or (sequential? x) (set? x))
+              (sequential? x)
               (data-to-paths' (into {} (map-indexed vector x)) acc cur-path)
 
 
