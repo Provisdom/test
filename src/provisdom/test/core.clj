@@ -51,12 +51,14 @@
   ([expected actual {:keys [tolerance]}]
    (let [expected-paths-map (data-to-paths expected)
          actual-paths-map (data-to-paths actual)]
-     (every? (fn [[path expected-val]]
-               (let [actual-val (get actual-paths-map path)]
-                 (if (number? expected-val)
-                   (approx= expected-val actual-val tolerance)
-                   (= expected-val (get actual-paths-map path)))))
-             expected-paths-map))))
+     (and (= (set (keys expected-paths-map))
+             (set (keys actual-paths-map)))
+          (every? (fn [[path expected-val]]
+                    (let [actual-val (get actual-paths-map path)]
+                      (if (number? expected-val)
+                        (approx= expected-val actual-val tolerance)
+                        (= expected-val (get actual-paths-map path)))))
+                  expected-paths-map)))))
 
 (defmethod t/assert-expr 'just
   [msg form]

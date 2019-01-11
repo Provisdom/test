@@ -74,6 +74,7 @@
         {:a 1.0}
         {:a 1.001}
         {:tolerance 1e-2}))
+  (is (not (t/data-approx= {:a 1} {:b 1})))
   (is (not (t/data-approx=
              {:a 1.0}
              {:a 1.01}))))
