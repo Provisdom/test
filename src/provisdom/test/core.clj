@@ -24,6 +24,40 @@
                      (= e a))) expected actual))
     false))
 
+(defn- data-to-paths
+  [x]
+  (letfn [(data-to-paths' [x acc cur-path]
+            (cond
+              (or (sequential? x) (set? x))
+              (data-to-paths' (into {} (map-indexed vector x)) acc cur-path)
+
+
+              (map? x)
+              (reduce-kv
+                (fn [acc k v]
+                  (merge acc (data-to-paths' v acc (conj cur-path k))))
+                acc x)
+
+              :else (assoc acc cur-path x)))]
+    (data-to-paths' x {} [])))
+
+(defn approx=
+  ([x1 x2] (approx= x1 x2 1e-6))
+  ([x1 x2 tolerance]
+   (< (Math/abs (double (- x1 x2))) tolerance)))
+
+(defn data-approx=
+  ([expected actual] (data-approx= expected actual {:tolerance 1e-6}))
+  ([expected actual {:keys [tolerance]}]
+   (let [expected-paths-map (data-to-paths expected)
+         actual-paths-map (data-to-paths actual)]
+     (every? (fn [[path expected-val]]
+               (let [actual-val (get actual-paths-map path)]
+                 (if (number? expected-val)
+                   (approx= expected-val actual-val tolerance)
+                   (= expected-val (get actual-paths-map path)))))
+             expected-paths-map))))
+
 (defmethod t/assert-expr 'just
   [msg form]
   `(let [expected# ~(nth form 1)
