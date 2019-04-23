@@ -22,7 +22,7 @@
   (str (+ x y)))
 
 (s/fdef my-add
-        :args (s/cat :x number? :y number?)
+        :args (s/cat :x (s/int-in 0 100) :y (s/int-in 0 100))
         :ret string?)
 
 (t/defspec-test test-my-add `my-add)
