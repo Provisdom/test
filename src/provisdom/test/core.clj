@@ -3,7 +3,23 @@
     [clojure.test :as t]
     [clojure.string :as str]
     [clojure.spec.alpha :as s]
-    [clojure.spec.test.alpha :as st]))
+    [clojure.spec.test.alpha :as st]
+    [orchestra.spec.test :as ost]))
+
+(defmacro with-instrument*
+  [instrument-args & body]
+  `(do
+     (ost/instrument ~@instrument-args)
+     (try
+       ~@body
+       (finally
+         (ost/unstrument ~(first instrument-args))))))
+
+(defmacro with-instrument
+  "Enables instrumentation for `sym-or-syms` while executing `body`. Once `body`
+  has completed, unstrument will be called."
+  [sym-or-syms & body]
+  `(with-instrument* ~[sym-or-syms] ~@body))
 
 (defmacro is=
   ([expected actual] `(is= ~expected ~actual nil))
