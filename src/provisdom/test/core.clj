@@ -9,11 +9,13 @@
 (defmacro with-instrument*
   [instrument-args & body]
   `(do
+     (st/instrument)
      (ost/instrument ~@instrument-args)
      (try
        ~@body
        (finally
-         (ost/unstrument ~(first instrument-args))))))
+         (do (ost/unstrument ~(first instrument-args))
+             (st/unstrument))))))
 
 (defmacro with-instrument
   "Enables instrumentation for `sym-or-syms` while executing `body`. Once `body`
