@@ -21,6 +21,25 @@
   [sym-or-syms & body]
   `(with-instrument* ~[sym-or-syms] ~@body))
 
+(defmacro with-instrument2
+  [{:keys [orchestra spec]} & body]
+  (let [before-forms (->> [(when spec
+                             `(st/instrument ~@spec))
+                           (when orchestra
+                             `(ost/instrument ~@orchestra))]
+                          (filter some?))
+        after-forms (->> [(when spec
+                            `(st/unstrument ~@(take 1 spec)))
+                          (when orchestra
+                            `(ost/unstrument ~@(take 1 orchestra)))]
+                         (filter some?))]
+    `(do
+       ~@before-forms
+       (try
+         ~@body
+         (finally
+           ~@after-forms)))))
+
 (defmacro is=
   ([expected actual] `(is= ~expected ~actual nil))
   ([expected actual msg]
