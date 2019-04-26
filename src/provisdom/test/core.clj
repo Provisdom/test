@@ -4,6 +4,7 @@
     [clojure.string :as str]
     [clojure.spec.alpha :as s]
     [clojure.spec.test.alpha :as st]
+    [expound.alpha :as expound]
     [orchestra.spec.test :as ost]))
 
 (defmacro with-instrument*
@@ -160,9 +161,10 @@
                     :check-failed {:actual  (if (contains? explain-data# ::s/failure)
                                               (::s/value explain-data#)
                                               thrown-ex#)
-                                   :message (format "Function call: \n(%s %s)\n\n"
-                                                    sym#
-                                                    (str/join " " passed-args#))}
+                                   :message (expound/explain-results-str check-results#)
+                                   #_(format "Function call: \n(%s %s)\n\n"
+                                             sym#
+                                             (str/join " " passed-args#))}
                     {:actual  thrown-ex#
                      :message (.getMessage ^Throwable thrown-ex#)})))))
      checks-passed?#))

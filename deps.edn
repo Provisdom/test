@@ -1,5 +1,6 @@
 {:paths   ["src"]
- :deps    {orchestra {:mvn/version "2019.02.06-1"}}
+ :deps    {orchestra {:mvn/version "2019.02.06-1"}
+           expound   {:mvn/version "0.7.2"}}
  :aliases {:test {:extra-paths ["test"]
                   :extra-deps  {org.clojure/test.check    {:mvn/version "0.10.0-alpha2"}
                                 com.cognitect/test-runner {:git/url "https://github.com/cognitect-labs/test-runner.git"
