@@ -161,7 +161,8 @@
                     :check-failed {:actual  (if (contains? explain-data# ::s/failure)
                                               (::s/value explain-data#)
                                               thrown-ex#)
-                                   :message (expound/explain-results-str check-results#)
+                                   :message (binding [s/*explain-out* expound/printer]
+                                              (expound/explain-results-str check-results#))
                                    #_(format "Function call: \n(%s %s)\n\n"
                                              sym#
                                              (str/join " " passed-args#))}
