@@ -4,8 +4,8 @@
     [clojure.string :as str]
     [clojure.spec.alpha :as s]
     [clojure.spec.test.alpha :as st]
-    [expound.alpha :as expound]
-    [orchestra.spec.test :as ost]))
+    [orchestra.spec.test :as ost])
+  (:import (clojure.lang ExceptionInfo)))
 
 (defmacro with-instrument*
   [instrument-args & body]
@@ -127,9 +127,72 @@
     (update base-opts :clojure.spec.test.check/opts
             (fn [stc-opts] (merge stc-opts (:test-check base-opts))))))
 
+(defn spec-test-check
+  ([sym-or-syms] (spec-test-check sym-or-syms {}))
+  ([sym-or-syms opts]
+   (st/check sym-or-syms (normalize-spec-test-opts opts))))
+
 (defn fspec-data
   [sym]
   (apply hash-map (rest (s/form (s/get-spec sym)))))
+
+(defn report-spec-check
+  [check-results]
+  (let [first-failure (-> (filter (fn [result]
+                                    (not= true (get-in result [:clojure.spec.test.check/ret :result])))
+                                  check-results)
+                          (first))]
+    (if first-failure
+      ;; reasons for a check to fail:
+      ;; - generator threw an exception: test.check results
+      ;; - return value does not pass :ret spec: test.check results
+      ;; - function threw exception while running: test.check results
+      ;; - cannot satisfy such-that in args: thrown as an exception
+      (let [fn-sym (:sym first-failure)
+            test-check-ret (:clojure.spec.test.check/ret first-failure)
+            ;; the seed can be used to reproduce the test results
+            seed (:seed test-check-ret)
+            ;; args used during the failed function call
+            failing-args (first (:fail test-check-ret))
+            spec-error (-> (:result-data test-check-ret)
+                           :clojure.test.check.properties/error)
+            spec-error? (fn [ex]
+                          (and (instance? ExceptionInfo ex)
+                               (::s/failure (ex-data ex))))
+            spec-error-map (fn [ex]
+                             (let [spec-error-message (.getMessage ex)
+                                   explain-data (ex-data ex)]
+                               {:type     :fail
+                                :expected "n/a"
+                                :actual   "n/a"
+                                :message  (str spec-error-message " (seed: " seed ")" "\n\n"
+                                               (with-out-str (s/explain-out explain-data)) "\n"
+                                               "Args:" "\n\n"
+                                               (pr-str failing-args) "\n\n"
+                                               "---------------")}))]
+        (cond
+          (spec-error? spec-error)
+          (spec-error-map spec-error)
+
+          ;; Exceptions thrown from Spec itself
+          (spec-error? (:failure first-failure))
+          (spec-error-map (:failure first-failure))
+
+          ;; Generator threw an exception
+          (instance? Throwable (:failure first-failure))
+          {:type     :fail
+           :expected ""
+           :actual   (:failure first-failure)
+           :message  "A generator threw an exception.\n"}
+
+          :else {:type     :fail
+                 :expected ""
+                 :actual   spec-error
+                 :message  (str fn-sym " threw an exception.\n")}))
+      ;; all checks passed
+      {:type    :pass
+       :message (str "Generative tests pass for "
+                     (str/join ", " (map :sym check-results)))})))
 
 ;; must be done at compile time for correct line number resolution
 (defmacro do-spec-check-report
@@ -140,35 +203,8 @@
                                   s/*fspec-iterations* (or (:fspec-iterations opts#) s/*fspec-iterations*)
                                   s/*recursion-limit* (or (:recursion-limit opts#) s/*recursion-limit*)]
                           (st/check ~sym-or-syms opts#))
-         checks-passed?# (every? nil? (map :failure check-results#))]
-     (if checks-passed?#
-       (t/do-report {:type    :pass
-                     :message (str "Generative tests pass for "
-                                   (str/join ", " (map :sym check-results#)))})
-       (let [failed-check# (first (filter #(contains? % :failure) check-results#))
-             sym# (:sym failed-check#)
-             thrown-ex# (if-let [failure# (get-in failed-check# [:clojure.spec.test.check/ret :result])]
-                          failure#
-                          (get-in failed-check# [:clojure.spec.test.check/ret :result-data :clojure.test.check.properties/error]))
-             passed-args# (-> failed-check# (get-in [:clojure.spec.test.check/ret :fail]) (first))
-             explain-data# (-> thrown-ex#
-                               (ex-data)
-                               (assoc ::st/caller sym#))]
-         (t/do-report
-           (merge {:type     :fail
-                   :expected (:ret (fspec-data sym#))}
-                  (case (::s/failure explain-data#)
-                    :check-failed {:actual  (if (contains? explain-data# ::s/failure)
-                                              (::s/value explain-data#)
-                                              thrown-ex#)
-                                   :message (binding [s/*explain-out* expound/printer]
-                                              (expound/explain-results-str check-results#))
-                                   #_(format "Function call: \n(%s %s)\n\n"
-                                             sym#
-                                             (str/join " " passed-args#))}
-                    {:actual  thrown-ex#
-                     :message (.getMessage ^Throwable thrown-ex#)})))))
-     checks-passed?#))
+         report-map# (report-spec-check check-results#)]
+     (t/do-report report-map#)))
 
 (defn- fully-qualified-namespace
   [sym]

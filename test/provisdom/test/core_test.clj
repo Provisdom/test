@@ -22,8 +22,70 @@
   (str (+ x y)))
 
 (s/fdef my-add
-        :args (s/cat :x (s/int-in 0 100) :y (s/int-in 0 100))
-        :ret string?)
+  :args (s/cat :x (s/int-in 0 100) :y (s/int-in 0 100))
+  :ret string?)
+
+(defn return-does-not-pass-spec
+  [x]
+  x)
+
+(s/fdef return-does-not-pass-spec
+  :args (s/cat :x (s/int-in 0 100))
+  :ret string?)
+
+(comment
+  (deftest return-does-not-pass-spec-test
+    (is (spec-check return-does-not-pass-spec)))
+  )
+
+
+(defn gen-throws-exception
+  [x]
+  x)
+
+(s/fdef gen-throws-exception
+  :args (s/cat :x (s/with-gen (s/int-in 0 100)
+                              (fn []
+                                (throw (ex-info "fail" {})))))
+  :ret string?)
+
+(comment
+  (deftest gen-throws-exception-test
+    (is (spec-check gen-throws-exception)))
+  )
+
+
+(comment
+  (deftest return-does-not-pass-spec-test
+    (is (spec-check return-does-not-pass-spec)))
+  )
+
+
+(defn throws-exception
+  [x]
+  (throw (ex-info "i throw" {}))
+  x)
+
+(s/fdef throws-exception
+  :args (s/cat :x (s/int-in 0 100))
+  :ret int?)
+
+(comment
+  (deftest throws-exception-test
+    (is (spec-check throws-exception)))
+  )
+
+
+(defn cannot-satisfy-such-that
+  [x y]
+  (str (+ x y)))
+
+(s/fdef cannot-satisfy-such-that
+  :args (s/and (s/cat :x (s/int-in 0 100) :y (s/int-in 0 100))
+               (fn [{:keys [x y]}]
+                 (= x (/ (inc y) 10))))
+  :ret string?)
+
 
 (t/defspec-test test-my-add `my-add)
 
