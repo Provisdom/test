@@ -3,20 +3,32 @@
     [clojure.test :as t]
     [clojure.string :as str]
     [clojure.spec.alpha :as s]
-    [clojure.spec.test.alpha :as st]
-    [orchestra.spec.test :as ost])
-  (:import (clojure.lang ExceptionInfo)))
+    [clojure.spec.test.alpha :as st])
+  (:import (clojure.lang ExceptionInfo)
+           (java.io FileNotFoundException)))
+
+(def instrument-delay
+  (delay
+    (let [ost-instrument (try
+                           (requiring-resolve 'orchestra.spec.test/instrument)
+                           (catch FileNotFoundException _ nil))]
+      (or ost-instrument st/instrument))))
+
+(def unstrument-delay
+  (delay
+    (let [ost-unstrument (try
+                           (requiring-resolve 'orchestra.spec.test/unstrument)
+                           (catch FileNotFoundException _ nil))]
+      (or ost-unstrument st/unstrument))))
 
 (defmacro with-instrument*
   [instrument-args & body]
   `(do
-     (st/instrument)
-     (ost/instrument ~@instrument-args)
+     (@instrument-delay ~@instrument-args)
      (try
        ~@body
        (finally
-         (do (ost/unstrument ~(first instrument-args))
-             (st/unstrument))))))
+         (@unstrument-delay ~(first instrument-args))))))
 
 (defmacro with-instrument
   "Enables instrumentation for `sym-or-syms` while executing `body`. Once `body`
@@ -29,12 +41,12 @@
   (let [before-forms (->> [(when spec
                              `(st/instrument ~@spec))
                            (when orchestra
-                             `(ost/instrument ~@orchestra))]
+                             `(orchestra.spec.test/instrument ~@orchestra))]
                           (filter some?))
         after-forms (->> [(when spec
-                            `(st/unstrument ~@(take 1 spec)))
+                            `(orchestra.spec.test/unstrument ~@(take 1 spec)))
                           (when orchestra
-                            `(ost/unstrument ~@(take 1 orchestra)))]
+                            `(orchestra.spec.test/unstrument ~@(take 1 orchestra)))]
                          (filter some?))]
     `(do
        ~@before-forms
