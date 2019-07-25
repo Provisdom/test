@@ -213,9 +213,12 @@
       (symbol (str (:ns metadata)) (str (:name metadata))))))
 
 (defmacro spec-check*
-  ([sym] `(spec-check* ~sym {}))
-  ([sym opts]
-   (let [sym (fully-qualified-namespace sym)
+  ([sym-or-syms] `(spec-check* ~sym-or-syms {}))
+  ([sym-or-syms opts]
+   (let [syms (if (sequential? sym-or-syms) sym-or-syms [sym-or-syms])
+         syms (->> syms
+                   (map fully-qualified-namespace)
+                   (filter some?))
          {:keys [coll-check-limit
                  coll-error-limit
                  fspec-iterations
@@ -225,13 +228,13 @@
          check-opts (cond-> opts
                       num-tests (assoc-in [:clojure.spec.test.check/opts :num-tests] num-tests)
                       seed (assoc-in [:clojure.spec.test.check/opts :seed] seed))]
-     (if sym
+     (if (not-empty syms)
        `(binding [s/*coll-check-limit* (or ~coll-check-limit s/*coll-check-limit*)
                   s/*coll-error-limit* (or ~coll-error-limit s/*coll-error-limit*)
                   s/*fspec-iterations* (or ~fspec-iterations s/*fspec-iterations*)
                   s/*recursion-limit* (or ~recursion-limit s/*recursion-limit*)]
-          (st/check '~sym ~check-opts))
-       (throw (ex-info "Cannot qualify symbol." {:sym ~sym}))))))
+          (st/check '~syms ~check-opts))
+       (throw (ex-info "Cannot qualify some symbols." {:sym ~syms}))))))
 
 ;; must be done at compile time for correct line number resolution
 (defmacro do-spec-check-report
