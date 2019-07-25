@@ -206,30 +206,44 @@
        :message (str "Generative tests pass for "
                      (str/join ", " (map :sym check-results)))})))
 
-;; must be done at compile time for correct line number resolution
-(defmacro do-spec-check-report
-  [sym-or-syms opts]
-  `(let [opts# (#'normalize-spec-test-opts ~opts)
-         check-results# (binding [s/*coll-check-limit* (or (:coll-check-limit opts#) s/*coll-check-limit*)
-                                  s/*coll-error-limit* (or (:coll-error-limit opts#) s/*coll-error-limit*)
-                                  s/*fspec-iterations* (or (:fspec-iterations opts#) s/*fspec-iterations*)
-                                  s/*recursion-limit* (or (:recursion-limit opts#) s/*recursion-limit*)]
-                          (st/check ~sym-or-syms opts#))
-         report-map# (report-spec-check check-results#)]
-     (t/do-report report-map#)))
-
 (defn- fully-qualified-namespace
   [sym]
   (let [metadata (meta (resolve sym))]
     (when metadata
       (symbol (str (:ns metadata)) (str (:name metadata))))))
 
+(defmacro spec-check*
+  ([sym] `(spec-check* ~sym {}))
+  ([sym opts]
+   (let [sym (fully-qualified-namespace sym)
+         {:keys [coll-check-limit
+                 coll-error-limit
+                 fspec-iterations
+                 recursion-limit
+                 num-tests
+                 seed]} opts
+         check-opts (cond-> opts
+                      num-tests (assoc-in [:clojure.spec.test.check/opts :num-tests] num-tests)
+                      seed (assoc-in [:clojure.spec.test.check/opts :seed] seed))]
+     (if sym
+       `(binding [s/*coll-check-limit* (or ~coll-check-limit s/*coll-check-limit*)
+                  s/*coll-error-limit* (or ~coll-error-limit s/*coll-error-limit*)
+                  s/*fspec-iterations* (or ~fspec-iterations s/*fspec-iterations*)
+                  s/*recursion-limit* (or ~recursion-limit s/*recursion-limit*)]
+          (st/check '~sym ~check-opts))
+       (throw (ex-info "Cannot qualify symbol." {:sym ~sym}))))))
+
+;; must be done at compile time for correct line number resolution
+(defmacro do-spec-check-report
+  [sym-or-syms opts]
+  `(let [check-results# (spec-check* ~sym-or-syms ~opts)
+         report-map# (report-spec-check check-results#)]
+     (t/do-report report-map#)))
+
 (defmethod t/assert-expr 'spec-check
   [msg form]
-  (let [[_ sym-form opts] form
-        sym (fully-qualified-namespace sym-form)]
-    (when-not sym (throw (ex-info "Cannot qualify symbol." {:sym sym-form})))
-    `(do-spec-check-report '~sym ~opts)))
+  (let [[_ sym-form opts] form]
+    `(do-spec-check-report ~sym-form ~opts)))
 
 (defmacro defspec-test
   ([name sym-or-syms] `(defspec-test ~name ~sym-or-syms nil))
