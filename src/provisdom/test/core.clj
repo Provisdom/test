@@ -3,7 +3,8 @@
     [clojure.test :as t]
     [clojure.string :as str]
     [clojure.spec.alpha :as s]
-    [clojure.spec.test.alpha :as st])
+    [clojure.spec.test.alpha :as st]
+    [clojure.spec.gen.alpha :as gen])
   (:import (clojure.lang ExceptionInfo)
            (java.io FileNotFoundException)))
 
@@ -54,6 +55,16 @@
          ~@body
          (finally
            ~@after-forms)))))
+
+(defmacro such-that-override
+  [such-that-opts & body]
+  `(let [such-that# gen/such-that]
+     (with-redefs [gen/such-that (fn
+                                   ([pred# gen#]
+                                    (such-that# pred# gen# ~such-that-opts))
+                                   ([pred# gen# opts#]
+                                    (such-that# pred# gen# ~such-that-opts)))]
+       ~@body)))
 
 (defmacro is=
   ([expected actual] `(is= ~expected ~actual nil))
