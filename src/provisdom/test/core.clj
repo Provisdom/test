@@ -263,7 +263,7 @@
                  recursion-limit
                  num-tests
                  seed]} opts
-         check-opts (cond-> opts
+         check-opts (cond-> (normalize-spec-test-opts opts)
                       num-tests (assoc-in [:clojure.spec.test.check/opts :num-tests] num-tests)
                       seed (assoc-in [:clojure.spec.test.check/opts :seed] seed))]
      (if (not-empty syms)
