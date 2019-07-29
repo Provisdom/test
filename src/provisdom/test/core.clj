@@ -66,6 +66,23 @@
                                     (such-that# pred# gen# ~such-that-opts)))]
        ~@body)))
 
+(defn my-gensub
+  [spec overrides path rmap form]
+  ;;(prn {:spec spec :over overrides :path path :form form})
+  (let [spec (#'s/specize spec)]
+    (if-let [g (or (when-let [gfn (or (get overrides (or (#'s/spec-name spec) spec))
+                                      (get overrides path))]
+                     (gfn))
+                   (s/gen* spec overrides path rmap))]
+      (gen/such-that (with-meta (fn [x] (def last-genned x) (s/valid? spec x))
+                                {:spec      spec
+                                 :overrides overrides
+                                 :path      path
+                                 :form      form}) g 100)
+      (let [abbr (s/abbrev form)]
+        (throw (ex-info (str "Unable to construct gen at: " path " for: " abbr)
+                        {::path path ::form form ::failure :no-gen}))))))
+
 (defmacro is=
   ([expected actual] `(is= ~expected ~actual nil))
   ([expected actual msg]
@@ -159,6 +176,12 @@
   [sym]
   (apply hash-map (rest (s/form (s/get-spec sym)))))
 
+(defonce failed-args-store (atom {}))
+
+(defn get-failed-args
+  [fn-sym]
+  (get @failed-args-store fn-sym))
+
 (defn report-spec-check
   [check-results]
   (let [first-failure (-> (filter (fn [result]
@@ -193,6 +216,7 @@
                                                "Args:" "\n\n"
                                                (pr-str failing-args) "\n\n"
                                                "---------------")}))]
+        (swap! failed-args-store assoc fn-sym failing-args)
         (cond
           (spec-error? spec-error)
           (spec-error-map spec-error)
@@ -213,9 +237,12 @@
                  :actual   spec-error
                  :message  (str fn-sym " threw an exception.\n")}))
       ;; all checks passed
-      {:type    :pass
-       :message (str "Generative tests pass for "
-                     (str/join ", " (map :sym check-results)))})))
+      (do
+        (swap! failed-args-store (fn [failed]
+                                   (apply dissoc failed (map :sym check-results))))
+        {:type    :pass
+         :message (str "Generative tests pass for "
+                       (str/join ", " (map :sym check-results)))}))))
 
 (defn- fully-qualified-namespace
   [sym]
