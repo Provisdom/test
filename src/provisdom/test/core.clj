@@ -66,22 +66,53 @@
                                     (such-that# pred# gen# ~such-that-opts)))]
        ~@body)))
 
+(defonce invalid-gen-vals (atom {}))
+
 (defn my-gensub
-  [spec overrides path rmap form]
-  ;;(prn {:spec spec :over overrides :path path :form form})
-  (let [spec (#'s/specize spec)]
-    (if-let [g (or (when-let [gfn (or (get overrides (or (#'s/spec-name spec) spec))
-                                      (get overrides path))]
-                     (gfn))
-                   (s/gen* spec overrides path rmap))]
-      (gen/such-that (with-meta (fn [x] (def last-genned x) (s/valid? spec x))
-                                {:spec      spec
-                                 :overrides overrides
-                                 :path      path
-                                 :form      form}) g 100)
-      (let [abbr (s/abbrev form)]
-        (throw (ex-info (str "Unable to construct gen at: " path " for: " abbr)
-                        {::path path ::form form ::failure :no-gen}))))))
+  ([spec overrides path rmap form] (my-gensub spec overrides path rmap form invalid-gen-vals))
+  ([og-spec overrides path rmap form invalid-store]
+   ;;(prn {:spec spec :over overrides :path path :form form})
+   (let [spec (#'s/specize og-spec)]
+     (if-let [g (or (when-let [gfn (or (get overrides (or (#'s/spec-name spec) spec))
+                                       (get overrides path))]
+                      (gfn))
+                    (s/gen* spec overrides path rmap))]
+       (gen/such-that (with-meta (fn [x]
+                                   (let [valid? (s/valid? spec x)]
+                                     (when-not valid?
+                                       (swap! invalid-store assoc og-spec x))
+                                     valid?))
+                                 {:spec      spec
+                                  :overrides overrides
+                                  :path      path
+                                  :form      form}) g 100)
+       (let [abbr (s/abbrev form)]
+         (throw (ex-info (str "Unable to construct gen at: " path " for: " abbr)
+                         {::path path ::form form ::failure :no-gen})))))))
+
+(defmacro debug-slow-gen
+  [{:keys [gen spec samples max-tries]
+    :or   {samples   500
+           max-tries 3}}]
+  (assert (or gen spec) ":spec or :gen must be passed")
+  `(let [gen# (or ~gen (s/gen ~spec))
+         invalid-store# (atom {})]
+     (provisdom.test.core/such-that-override {:max-tries ~max-tries}
+       (with-redefs [s/gensub (fn [spec# overrides# path# rmap# form#]
+                                (my-gensub spec# overrides# path# rmap# form# invalid-store#))]
+         (do
+           (try
+             (doall (gen/sample gen# ~samples))
+             :success
+
+             (catch ExceptionInfo ex#
+               (if (:max-tries (ex-data ex#))
+                 (when ~spec
+                   (let [failed# (get @invalid-store# ~spec)]
+                     (binding [*out* *err*] (println "Failed such that"))
+                     (def ~(symbol (str *ns*) "s-failed-val") failed#)
+                     @invalid-store#))
+                 (throw ex#)))))))))
 
 (defmacro is=
   ([expected actual] `(is= ~expected ~actual nil))
