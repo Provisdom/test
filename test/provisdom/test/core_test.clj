@@ -89,11 +89,9 @@
 
 (t/defspec-test test-my-add `my-add)
 
-(def opts {:test-check {:num-tests 10}})
-
 (deftest test-spec-check-assert
   (is (spec-check my-add {:test-check {:num-tests 10}}))
-  (is (spec-check my-add opts))
+  (is (spec-check my-add {:test-check {:num-tests 10}}))
   (t/with-spec-check-opts {:test-check {:num-tests 10}}
     (is (spec-check my-add)))
   (t/with-spec-check-opts opts
