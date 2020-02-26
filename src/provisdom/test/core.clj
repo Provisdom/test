@@ -22,14 +22,24 @@
                            (catch FileNotFoundException _ nil))]
       (or ost-unstrument st/unstrument))))
 
+(defn function-instrumented?
+  [sym]
+  (let [instrumented-vars @(var-get #'st/instrumented-vars)]
+    (contains? instrumented-vars (resolve sym))))
+
+(defn collectionize
+  [x]
+  (if (coll? x) x [x]))
+
 (defmacro with-instrument*
   [instrument-args & body]
-  `(do
+  `(let [syms# (collectionize ~(first instrument-args))
+         should-unstrument# (set (filter (complement function-instrumented?) syms#))]
      (@instrument-delay ~@instrument-args)
      (try
        ~@body
        (finally
-         (@unstrument-delay ~(first instrument-args))))))
+         (@unstrument-delay (filter should-unstrument# syms#))))))
 
 (defmacro with-instrument
   "Enables instrumentation for `sym-or-syms` while executing `body`. Once `body`
@@ -98,21 +108,21 @@
   `(let [gen# (or ~gen (s/gen ~spec))
          invalid-store# (atom {})]
      (provisdom.test.core/such-that-override {:max-tries ~max-tries}
-       (with-redefs [s/gensub (fn [spec# overrides# path# rmap# form#]
-                                (my-gensub spec# overrides# path# rmap# form# invalid-store#))]
-         (do
-           (try
-             (doall (gen/sample gen# ~samples))
-             :success
+                                             (with-redefs [s/gensub (fn [spec# overrides# path# rmap# form#]
+                                                                      (my-gensub spec# overrides# path# rmap# form# invalid-store#))]
+                                               (do
+                                                 (try
+                                                   (doall (gen/sample gen# ~samples))
+                                                   :success
 
-             (catch ExceptionInfo ex#
-               (if (:max-tries (ex-data ex#))
-                 (when ~spec
-                   (let [failed# (get @invalid-store# ~spec)]
-                     (binding [*out* *err*] (println "Failed such that"))
-                     (def ~(symbol (str *ns*) "s-failed-val") failed#)
-                     @invalid-store#))
-                 (throw ex#)))))))))
+                                                   (catch ExceptionInfo ex#
+                                                     (if (:max-tries (ex-data ex#))
+                                                       (when ~spec
+                                                         (let [failed# (get @invalid-store# ~spec)]
+                                                           (binding [*out* *err*] (println "Failed such that"))
+                                                           (def ~(symbol (str *ns*) "s-failed-val") failed#)
+                                                           @invalid-store#))
+                                                       (throw ex#)))))))))
 
 (defmacro is=
   ([expected actual] `(is= ~expected ~actual nil))

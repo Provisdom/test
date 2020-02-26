@@ -3,7 +3,8 @@
     [clojure.test :refer :all]
     [clojure.spec.alpha :as s]
     [clojure.spec.test.alpha :as st]
-    [provisdom.test.core :as t]))
+    [provisdom.test.core :as t])
+  (:import (clojure.lang ExceptionInfo)))
 
 (deftest test-macro-expansions
   (are [expected-form quoted-form] (= expected-form (macroexpand-1 quoted-form))
@@ -45,8 +46,8 @@
 
 (s/fdef gen-throws-exception
   :args (s/cat :x (s/with-gen (s/int-in 0 100)
-                              (fn []
-                                (throw (ex-info "fail" {})))))
+                    (fn []
+                      (throw (ex-info "fail" {})))))
   :ret string?)
 
 (comment
@@ -86,6 +87,26 @@
                  (= x (/ (inc y) 10))))
   :ret string?)
 
+(deftest function-instrumented?-test
+  (st/unstrument `my-add)
+  (st/instrument `my-add)
+  (is (= true (t/function-instrumented? `my-add)))
+  (st/unstrument `my-add)
+  (is (= false (t/function-instrumented? `my-add))))
+
+
+(deftest with-instrument-test
+  (testing "started instrumented"
+    (st/instrument `my-add)
+    (t/with-instrument `my-add
+      (my-add 1 2))
+    (is (thrown? ExceptionInfo (my-add 1 "a")))
+    (st/unstrument `my-add))
+  (testing "started uninstrumented"
+    (t/with-instrument `my-add
+      (is (thrown? ExceptionInfo (my-add 1 "a"))))
+    (is (thrown? ClassCastException (my-add 1 "a")))))
+
 
 (t/defspec-test test-my-add `my-add)
 
@@ -93,7 +114,7 @@
   (is (spec-check my-add {:test-check {:num-tests 10}}))
   (is (spec-check my-add {:test-check {:num-tests 10}}))
   (t/with-spec-check-opts {:test-check {:num-tests 10}}
-    (is (spec-check my-add)))
+                          (is (spec-check my-add)))
   (is (spec-check my-add {:coll-check-limit 10
                           :coll-error-limit 10
                           :fspec-iterations 10
