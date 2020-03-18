@@ -311,7 +311,7 @@
                       (into {}
                             (keep (fn [k]
                                     (when-let [v (get opts k)]
-                                      [(keyword "clojure.spec.test.check" k) v])))
+                                      [(keyword "clojure.spec.test.check" (name k)) v])))
                             quick-check-stc-keys))]
      (if (not-empty syms)
        `(binding [s/*coll-check-limit* (or ~coll-check-limit s/*coll-check-limit*)
@@ -355,7 +355,7 @@
 ;; must be done at compile time for correct line number resolution
 (defmacro do-spec-check-report
   [sym-or-syms opts]
-  `(let [check-results# (spec-check* ~sym-or-syms ~opts)
+  `(let [check-results# (spec-check ~sym-or-syms ~opts)
          report-map# (report-spec-check check-results#)]
      (t/do-report report-map#)))
 

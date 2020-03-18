@@ -113,8 +113,9 @@
 (deftest test-spec-check-assert
   (is (spec-check my-add {:test-check {:num-tests 10}}))
   (is (spec-check my-add {:test-check {:num-tests 10}}))
-  (t/with-spec-check-opts {:test-check {:num-tests 10}}
-                          (is (spec-check my-add)))
+  (t/with-spec-check-opts
+    {:test-check {:num-tests 10}}
+    (is (spec-check my-add)))
   (is (spec-check my-add {:coll-check-limit 10
                           :coll-error-limit 10
                           :fspec-iterations 10
