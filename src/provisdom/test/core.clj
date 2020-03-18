@@ -202,12 +202,17 @@
   `(binding [*default-spec-check-opts* ~opts]
      ~@forms))
 
+(def quick-check-stc-keys
+  [:num-tests :seed :max-size :reporter-fn])
+
 (defn- normalize-spec-test-opts
   [opts]
   (let [base-opts (merge *default-spec-check-opts* opts)]
-    (update base-opts :clojure.spec.test.check/opts
-            ;; exists for backwards compatibility. Eventually this can be removed
-            merge (:test-check base-opts {}))))
+    (-> base-opts
+        (assoc :clojure.spec.test.check/opts (select-keys opts quick-check-stc-keys))
+        (update :clojure.spec.test.check/opts
+                ;; exists for backwards compatibility. Eventually this can be removed
+                merge (:test-check base-opts {})))))
 
 (defn spec-test-check
   ([sym-or-syms] (spec-test-check sym-or-syms {}))
@@ -292,36 +297,6 @@
     (when metadata
       (symbol (str (:ns metadata)) (str (:name metadata))))))
 
-(def quick-check-stc-keys
-  [:num-tests :seed :max-size :reporter-fn])
-
-(defmacro spec-check*
-  ([sym-or-syms] `(spec-check* ~sym-or-syms {}))
-  ([sym-or-syms opts]
-   (let [syms (if (sequential? sym-or-syms) sym-or-syms [sym-or-syms])
-         syms (->> syms
-                   (map fully-qualified-namespace)
-                   (filter some?)
-                   (vec))
-         {:keys [coll-check-limit
-                 coll-error-limit
-                 fspec-iterations
-                 recursion-limit]} opts
-         check-opts (merge
-                      (normalize-spec-test-opts opts)
-                      (into {}
-                            (keep (fn [k]
-                                    (when-let [v (get opts k)]
-                                      [(keyword "clojure.spec.test.check" (name k)) v])))
-                            quick-check-stc-keys))]
-     (if (not-empty syms)
-       `(binding [~@(when coll-check-limit [`s/*coll-check-limit* coll-check-limit])
-                  ~@(when coll-error-limit [`s/*coll-error-limit* coll-error-limit])
-                  ~@(when fspec-iterations [`s/*fspec-iterations* fspec-iterations])
-                  ~@(when recursion-limit [`s/*recursion-limit* recursion-limit])]
-          (st/check '~syms ~check-opts))
-       (throw (ex-info "Cannot qualify some symbols." {:sym ~syms}))))))
-
 (defmacro spec-check
   "Run generative tests for spec conformance on vars named by sym-or-syms, a
   symbol or collection of symbols. If sym-or-syms is not specified, check all
@@ -351,7 +326,23 @@
       the test."
   ([sym-or-syms] `(spec-check ~sym-or-syms {}))
   ([sym-or-syms opts]
-   `(spec-check* ~sym-or-syms ~opts)))
+   (let [syms (if (sequential? sym-or-syms) sym-or-syms [sym-or-syms])
+         syms (->> syms
+                   (map fully-qualified-namespace)
+                   (filter some?)
+                   (vec))
+         {:keys [coll-check-limit
+                 coll-error-limit
+                 fspec-iterations
+                 recursion-limit]} opts
+         check-opts (normalize-spec-test-opts opts)]
+     (if (not-empty syms)
+       `(binding [~@(when coll-check-limit [`s/*coll-check-limit* coll-check-limit])
+                  ~@(when coll-error-limit [`s/*coll-error-limit* coll-error-limit])
+                  ~@(when fspec-iterations [`s/*fspec-iterations* fspec-iterations])
+                  ~@(when recursion-limit [`s/*recursion-limit* recursion-limit])]
+          (st/check '~syms ~check-opts))
+       (throw (ex-info "Cannot qualify some symbols." {:sym ~syms}))))))
 
 ;; must be done at compile time for correct line number resolution
 (defmacro do-spec-check-report
