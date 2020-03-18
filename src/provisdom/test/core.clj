@@ -206,7 +206,8 @@
   [opts]
   (let [base-opts (merge *default-spec-check-opts* opts)]
     (update base-opts :clojure.spec.test.check/opts
-            (fn [stc-opts] (merge stc-opts (:test-check base-opts))))))
+            ;; exists for backwards compatibility. Eventually this can be removed
+            merge (:test-check base-opts))))
 
 (defn spec-test-check
   ([sym-or-syms] (spec-test-check sym-or-syms {}))
@@ -291,6 +292,9 @@
     (when metadata
       (symbol (str (:ns metadata)) (str (:name metadata))))))
 
+(def quick-check-stc-keys
+  [:num-tests :seed :max-size :reporter-fn])
+
 (defmacro spec-check*
   ([sym-or-syms] `(spec-check* ~sym-or-syms {}))
   ([sym-or-syms opts]
@@ -301,12 +305,14 @@
          {:keys [coll-check-limit
                  coll-error-limit
                  fspec-iterations
-                 recursion-limit
-                 num-tests
-                 seed]} opts
-         check-opts (cond-> (normalize-spec-test-opts opts)
-                      num-tests (assoc-in [:clojure.spec.test.check/opts :num-tests] num-tests)
-                      seed (assoc-in [:clojure.spec.test.check/opts :seed] seed))]
+                 recursion-limit]} opts
+         check-opts (merge
+                      (normalize-spec-test-opts opts)
+                      (into {}
+                            (keep (fn [k]
+                                    (when-let [v (get opts k)]
+                                      [(keyword "clojure.spec.test.check" k) v])))
+                            quick-check-stc-keys))]
      (if (not-empty syms)
        `(binding [s/*coll-check-limit* (or ~coll-check-limit s/*coll-check-limit*)
                   s/*coll-error-limit* (or ~coll-error-limit s/*coll-error-limit*)
@@ -314,6 +320,37 @@
                   s/*recursion-limit* (or ~recursion-limit s/*recursion-limit*)]
           (st/check '~syms ~check-opts))
        (throw (ex-info "Cannot qualify some symbols." {:sym ~syms}))))))
+
+(defmacro spec-check
+  "Run generative tests for spec conformance on vars named by sym-or-syms, a
+  symbol or collection of symbols. If sym-or-syms is not specified, check all
+  checkable vars.
+
+  The opts map includes the following optional keys:
+    :gen - map from spec names to generator
+    :coll-check-limit - The number of elements validated in a collection spec'ed
+      with 'every'
+    :coll-error-limit - The number of errors reported by explain in a collection
+      spec'ed with 'every'
+    :fspec-iterations -
+      The number of times an anonymous fn specified by fspec will be (generatively)
+      tested during conform
+    :recursion-limit - A soft limit on how many times a branching spec
+      (or/alt/*/opt-keys/multi-spec) can be recursed through during generation.
+      After this a non-recursive branch will be chosen.
+  These opts flow through test.check/quick-check:
+    :num-tests - Number of gen tests to run
+    :seed - Can be used to re-run previous tests
+    :max-size - can be used to control the 'size' of generated values. The size
+      will start at 0, and grow up to max-size, as the number of tests increases.
+      Generators will use the size parameter to bound their growth. This
+      prevents, for example, generating a five-thousand element vector on
+      the very first test.
+    :reporter-fn - A callback function that will be called at various points in
+      the test."
+  ([sym-or-syms] `(spec-check ~sym-or-syms {}))
+  ([sym-or-syms opts]
+   `(spec-check* ~sym-or-syms ~opts)))
 
 ;; must be done at compile time for correct line number resolution
 (defmacro do-spec-check-report
