@@ -207,7 +207,7 @@
   (let [base-opts (merge *default-spec-check-opts* opts)]
     (update base-opts :clojure.spec.test.check/opts
             ;; exists for backwards compatibility. Eventually this can be removed
-            merge (:test-check base-opts))))
+            merge (:test-check base-opts {}))))
 
 (defn spec-test-check
   ([sym-or-syms] (spec-test-check sym-or-syms {}))
@@ -301,7 +301,8 @@
    (let [syms (if (sequential? sym-or-syms) sym-or-syms [sym-or-syms])
          syms (->> syms
                    (map fully-qualified-namespace)
-                   (filter some?))
+                   (filter some?)
+                   (vec))
          {:keys [coll-check-limit
                  coll-error-limit
                  fspec-iterations
@@ -314,10 +315,10 @@
                                       [(keyword "clojure.spec.test.check" (name k)) v])))
                             quick-check-stc-keys))]
      (if (not-empty syms)
-       `(binding [s/*coll-check-limit* (or ~coll-check-limit s/*coll-check-limit*)
-                  s/*coll-error-limit* (or ~coll-error-limit s/*coll-error-limit*)
-                  s/*fspec-iterations* (or ~fspec-iterations s/*fspec-iterations*)
-                  s/*recursion-limit* (or ~recursion-limit s/*recursion-limit*)]
+       `(binding [~@(when coll-check-limit [`s/*coll-check-limit* coll-check-limit])
+                  ~@(when coll-error-limit [`s/*coll-error-limit* coll-error-limit])
+                  ~@(when fspec-iterations [`s/*fspec-iterations* fspec-iterations])
+                  ~@(when recursion-limit [`s/*recursion-limit* recursion-limit])]
           (st/check '~syms ~check-opts))
        (throw (ex-info "Cannot qualify some symbols." {:sym ~syms}))))))
 
