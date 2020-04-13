@@ -165,6 +165,10 @@
   ([x1 x2 tolerance]
    (< (Math/abs (double (- x1 x2))) tolerance)))
 
+(defmacro is-valid
+  [spec x]
+  `(~'is (= nil (::s/problems (s/explain-data ~spec ~x)))))
+
 (defn data-approx=
   ([expected actual] (data-approx= expected actual {:tolerance 1e-6}))
   ([expected actual {:keys [tolerance]}]
