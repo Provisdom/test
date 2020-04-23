@@ -92,10 +92,10 @@
                                      (when-not valid?
                                        (swap! invalid-store assoc og-spec x))
                                      valid?))
-                                 {:spec      spec
-                                  :overrides overrides
-                                  :path      path
-                                  :form      form}) g 100)
+                        {:spec      spec
+                         :overrides overrides
+                         :path      path
+                         :form      form}) g 100)
        (let [abbr (s/abbrev form)]
          (throw (ex-info (str "Unable to construct gen at: " path " for: " abbr)
                          {::path path ::form form ::failure :no-gen})))))))
@@ -165,9 +165,19 @@
   ([x1 x2 tolerance]
    (< (Math/abs (double (- x1 x2))) tolerance)))
 
+(defmacro no-problems
+  "Returns true if x has no problems when validated against spec, false otherwise.
+  Most useful to be called inside an clojure.test/is form:
+    (is (no-problems int? 1))
+
+  [[is-valid]] is provided as a shortcut to this."
+  [spec x]
+  `(= nil (::s/problems (s/explain-data ~spec ~x))))
+
 (defmacro is-valid
   [spec x]
-  `(~'is (= nil (::s/problems (s/explain-data ~spec ~x)))))
+  (let [form (macroexpand `(no-problems ~spec ~x))]
+    `(~'is ~form)))
 
 (defn data-approx=
   ([expected actual] (data-approx= expected actual {:tolerance 1e-6}))

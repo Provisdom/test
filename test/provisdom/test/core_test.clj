@@ -144,6 +144,9 @@
   (is (t/approx= 1.0 1.001 1e-2))
   (is (not (t/approx= 1.0 1.01 1e-2))))
 
+(deftest is-valid-test
+  (t/is-valid int? 1))
+
 (deftest data-approx=-test
   (is (t/data-approx=
         {:a 1.0
