@@ -107,6 +107,11 @@
       (is (thrown? ExceptionInfo (my-add 1 "a"))))
     (is (thrown? ClassCastException (my-add 1 "a")))))
 
+(deftest instrumentation-test
+  (with-open [_ (t/instrumentation {:instrument [`my-add]})]
+    (is (thrown? ExceptionInfo (my-add 1 "a"))))
+  (is (thrown? ClassCastException (my-add 1 "a"))))
+
 
 (t/defspec-test test-my-add `my-add)
 

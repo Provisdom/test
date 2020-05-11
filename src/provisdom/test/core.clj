@@ -6,7 +6,7 @@
     [clojure.spec.test.alpha :as st]
     [clojure.spec.gen.alpha :as gen])
   (:import (clojure.lang ExceptionInfo)
-           (java.io FileNotFoundException)))
+           (java.io FileNotFoundException Closeable)))
 
 (def instrument-delay
   (delay
@@ -46,6 +46,24 @@
   has completed, unstrument will be called."
   [sym-or-syms & body]
   `(with-instrument* ~[sym-or-syms] ~@body))
+
+(defn instrumentation
+  "Enables instrumentation for the symbols in `instrument` until the `close`
+   method is invoked. Typically used in `with-open`. `instrument` is a collection
+   of symbols to instrument or `:all` for all instrumentable symbols. Will
+   unstrument symbols on close."
+  [{:keys [instrument]}]
+  (let [syms (cond
+               (coll? instrument) instrument
+               (= instrument :all) (st/instrumentable-syms)
+               :else (throw (ex-info "Instrument must be passed a collection of symbols or :all"
+                                     {:instrument instrument})))
+        unstrument-syms (set (filter (complement function-instrumented?) syms))
+        instrument! @instrument-delay]
+    (instrument! syms)
+    (reify Closeable
+      (close [_]
+        (st/unstrument unstrument-syms)))))
 
 (defmacro with-instrument2
   [{:keys [orchestra spec]} & body]
