@@ -15,3 +15,5 @@ pom.xml.asc
 project.clj
 .envrc
 .cpcache
+.shadow-cljs
+node_modules
