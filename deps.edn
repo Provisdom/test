@@ -6,5 +6,5 @@
                        :extra-deps  {org.clojure/test.check    {:mvn/version "0.10.0-alpha2"}
                                      com.cognitect/test-runner {:git/url "https://github.com/cognitect-labs/test-runner.git"
                                                                 :sha     "cb96e80f6f3d3b307c59cbeb49bb0dcb3a2a780b"}}
-                       #_#_:main-opts   ["-m" "cognitect.test-runner"]}
+                       :main-opts   ["-m" "cognitect.test-runner"]}
            :test-cljs {:extra-paths ["test"]}}}
