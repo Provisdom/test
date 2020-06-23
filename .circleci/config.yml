@@ -1,15 +1,12 @@
 version: 2.1
 
-defaults: &defaults
-  docker:
-    - image: circleci/clojure:tools-deps-1.9.0.397-node-browsers
-
 orbs:
   cache: compute/cache@0.0.3
 
 jobs:
   test-clj:
-    <<: *defaults
+    docker:
+      - image: circleci/clojure:tools-deps-1.10.1.536
 
     steps:
       - checkout
@@ -21,7 +18,8 @@ jobs:
                - command: clojure -A:test
 
   test-cljs:
-    <<: *defaults
+    docker:
+      - image: circleci/clojure:tools-deps-1.10.1.536-node-browsers
 
     steps:
       - checkout
@@ -29,13 +27,15 @@ jobs:
       - run: npm init -y
       - run: npm install
 
-      - cache/cljs:
-          steps:
-            - run:
-                - name: Run CLJS Karma Tests
-                - command: |
-                    npx shadow-cljs -v compile test-ci
-                    npx karma start --single-run
+      - node/install-packages:
+          cache-path: ~/project/node_modules
+          override-ci-command: npm install
+
+      - run:
+        - name: Run CLJS Karma Tests
+        - command: |
+            npx shadow-cljs -v compile test-ci
+            npx karma start --single-run
 
 workflows:
   version: 2
