@@ -2,7 +2,7 @@ version: 2.1
 
 orbs:
   cache: compute/cache@0.0.3
-  node: circleci/node@2
+  node: circleci/node@3.0.0
 
 jobs:
   test-clj:
