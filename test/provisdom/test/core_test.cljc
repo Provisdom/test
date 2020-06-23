@@ -15,10 +15,10 @@
 
 (deftest t-midje-just
   (are [e a] (t/midje-just e a)
-             [1 1 1] [1 1 1]
-             [1 1 #(and (number? %) (not (== % %)))] [1 1 #?(:clj Double/NaN :cljs js/NaN)])
+    [1 1 1] [1 1 1]
+    [1 1 #(and (number? %) (not (== % %)))] [1 1 #?(:clj Double/NaN :cljs js/NaN)])
   (are [e a] #?(:clj (not (t/midje-just e a)) :cljs (t/midje-just e a))
-             [1 1 1] [1 1 1.0]))
+    [1 1 1] [1 1 1.0]))
 
 (defn my-add
   [x y]
@@ -48,8 +48,8 @@
 
 (s/fdef gen-throws-exception
   :args (s/cat :x (s/with-gen (s/int-in 0 100)
-                              (fn []
-                                (throw (ex-info "fail" {})))))
+                    (fn []
+                      (throw (ex-info "fail" {})))))
   :ret string?)
 
 (comment

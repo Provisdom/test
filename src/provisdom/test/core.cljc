@@ -271,7 +271,6 @@
   [fn-sym]
   (get @failed-args-store fn-sym))
 
-
 (defn report-spec-check
   [check-results]
   (let [first-failure (-> (filter (fn [result]
