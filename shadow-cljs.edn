@@ -5,12 +5,4 @@
                       :output-dir "resources/public/js"
                       :asset-path "/js"}
             :test-ci {:target    :karma
-                      :output-to "target/ci.js"}
-            :test    {:target     :browser-test
-                      :runner-ns  lambdaisland.chui.shadow.browser-runner
-                      :test-dir   "resources/public"
-                      :asset-path "/ui"
-                      :ns-regexp  "-test$"}
-            :node    {:target    :node-test
-                      :output-to "out/node-tests.js"
-                      :ns-regexp "-test$"}}}
+                      :output-to "target/ci.js"}}}
