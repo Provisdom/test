@@ -259,7 +259,7 @@
 (defn spec-test-check
   ([sym-or-syms] (spec-test-check sym-or-syms {}))
   ([sym-or-syms opts]
-   (st/check #?(:clj sym-or-syms :cljs `sym-or-syms) (normalize-spec-test-opts opts))))
+   (st/check #?(:clj sym-or-syms :cljs 'sym-or-syms) (normalize-spec-test-opts opts))))
 
 (defn fspec-data
   [sym]
