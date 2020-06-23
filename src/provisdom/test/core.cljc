@@ -1,11 +1,17 @@
 (ns provisdom.test.core
+  #?(:cljs (:require-macros
+             [provisdom.test.core]
+             [provisdom.test.assertions.cljs]))
   (:require
     [clojure.test :as t]
     [clojure.string :as str]
     [clojure.spec.alpha :as s]
     [clojure.spec.test.alpha :as st]
     [clojure.spec.gen.alpha :as gen]
-    #?(:cljs [orchestra-cljs.spec.test]))
+    #?(:cljs [orchestra-cljs.spec.test])
+    #?(:cljs [cljs.test])
+    #?(:cljs [clojure.test.check])
+    #?(:cljs [clojure.test.check.properties]))
   #?(:clj (:import (clojure.lang ExceptionInfo)
                    (java.io FileNotFoundException Closeable))))
 
@@ -35,21 +41,21 @@
   [x]
   (if (coll? x) x [x]))
 
-#?(:clj (defmacro with-instrument*
-          [instrument-args & body]
-          `(let [syms# (collectionize ~(first instrument-args))
-                 should-unstrument# (set (filter (complement function-instrumented?) syms#))]
-             (@instrument-delay ~@instrument-args)
-             (try
-               ~@body
-               (finally
-                 (@unstrument-delay (filter should-unstrument# syms#)))))))
+(defmacro with-instrument*
+  [instrument-args & body]
+  `(let [syms# (collectionize ~(first instrument-args))
+         should-unstrument# (set (filter (complement function-instrumented?) syms#))]
+     (@instrument-delay ~@instrument-args)
+     (try
+       ~@body
+       (finally
+         (@unstrument-delay (filter should-unstrument# syms#))))))
 
-#?(:clj (defmacro with-instrument
-          "Enables instrumentation for `sym-or-syms` while executing `body`. Once `body`
-          has completed, unstrument will be called."
-          [sym-or-syms & body]
-          `(with-instrument* ~[sym-or-syms] ~@body)))
+(defmacro with-instrument
+  "Enables instrumentation for `sym-or-syms` while executing `body`. Once `body`
+  has completed, unstrument will be called."
+  [sym-or-syms & body]
+  `(with-instrument* ~[sym-or-syms] ~@body))
 
 (defn instrumentation
   "Enables instrumentation for the symbols in `instrument` until the `close`
@@ -216,20 +222,20 @@
                   expected-paths-map)))))
 
 #?(:clj (defmethod t/assert-expr 'just
-        [msg form]
-        `(let [expected# ~(nth form 1)
-               actual# ~(nth form 2)
-               result# (midje-just expected# actual#)]
-           (if result#
-             (t/do-report {:type     :pass
-                           :message  ~msg
-                           :expected '~form
-                           :actual   actual#})
-             (t/do-report {:type     :fail
-                           :message  ~msg
-                           :expected '~(nth form 1)
-                           :actual   actual#}))
-           result#)))
+          [menv msg form]
+          `(let [expected# ~(nth form 1)
+                 actual# ~(nth form 2)
+                 result# (midje-just expected# actual#)]
+             (if result#
+               (t/do-report {:type     :pass
+                             :message  ~msg
+                             :expected '~form
+                             :actual   actual#})
+               (t/do-report {:type     :fail
+                             :message  ~msg
+                             :expected '~(nth form 1)
+                             :actual   actual#}))
+             result#)))
 
 (def ^:dynamic *default-spec-check-opts* {})
 
@@ -265,73 +271,72 @@
   [fn-sym]
   (get @failed-args-store fn-sym))
 
-#?(:clj (defn report-spec-check
-          [check-results]
-          (let [first-failure (-> (filter (fn [result]
-                                            (not= true (get-in result [:clojure.spec.test.check/ret :result])))
-                                          check-results)
-                                  (first))]
-            (if first-failure
-              ;; reasons for a check to fail:
-              ;; - generator threw an exception: test.check results
-              ;; - return value does not pass :ret spec: test.check results
-              ;; - function threw exception while running: test.check results
-              ;; - cannot satisfy such-that in args: thrown as an exception
-              (let [fn-sym (:sym first-failure)
-                    test-check-ret (:clojure.spec.test.check/ret first-failure)
-                    ;; the seed can be used to reproduce the test results
-                    seed (:seed test-check-ret)
-                    ;; args used during the failed function call
-                    failing-args (first (:fail test-check-ret))
-                    spec-error (-> (:result-data test-check-ret)
-                                   :clojure.test.check.properties/error)
-                    spec-error? (fn [ex]
-                                  (and (instance? ExceptionInfo ex)
-                                       (::s/failure (ex-data ex))))
-                    spec-error-map (fn [ex]
-                                     (let [spec-error-message (.getMessage ex)
-                                           explain-data (ex-data ex)]
-                                       {:type     :fail
-                                        :expected "n/a"
-                                        :actual   "n/a"
-                                        :message  (str spec-error-message " (seed: " seed ")" "\n\n"
-                                                       (with-out-str (s/explain-out explain-data)) "\n"
-                                                       "Args:" "\n\n"
-                                                       (pr-str failing-args) "\n\n"
-                                                       "---------------")}))]
-                (swap! failed-args-store assoc fn-sym failing-args)
-                (cond
-                  (spec-error? spec-error)
-                  (spec-error-map spec-error)
 
-                  ;; Exceptions thrown from Spec itself
-                  (spec-error? (:failure first-failure))
-                  (spec-error-map (:failure first-failure))
+(defn report-spec-check
+  [check-results]
+  (let [first-failure (-> (filter (fn [result]
+                                    (not= true (get-in result [:clojure.spec.test.check/ret :result])))
+                                  check-results)
+                          (first))]
+    (if first-failure
+      ;; reasons for a check to fail:
+      ;; - generator threw an exception: test.check results
+      ;; - return value does not pass :ret spec: test.check results
+      ;; - function threw exception while running: test.check results
+      ;; - cannot satisfy such-that in args: thrown as an exception
+      (let [fn-sym (:sym first-failure)
+            test-check-ret (:clojure.spec.test.check/ret first-failure)
+            ;; the seed can be used to reproduce the test results
+            seed (:seed test-check-ret)
+            ;; args used during the failed function call
+            failing-args (first (:fail test-check-ret))
+            spec-error (-> (:result-data test-check-ret)
+                           :clojure.test.check.properties/error)
+            spec-error? (fn [ex]
+                          (and (instance? ExceptionInfo ex)
+                               (::s/failure (ex-data ex))))
+            spec-error-map (fn [ex]
+                             (let [spec-error-message (.getMessage ex)
+                                   explain-data (ex-data ex)]
+                               {:type     :fail
+                                :expected "n/a"
+                                :actual   "n/a"
+                                :message  (str spec-error-message " (seed: " seed ")" "\n\n"
+                                               (with-out-str (s/explain-out explain-data)) "\n"
+                                               "Args:" "\n\n"
+                                               (pr-str failing-args) "\n\n"
+                                               "---------------")}))]
+        (swap! failed-args-store assoc fn-sym failing-args)
+        (cond
+          (spec-error? spec-error)
+          (spec-error-map spec-error)
 
-                  ;; Generator threw an exception
-                  (instance? Throwable (:failure first-failure))
-                  {:type     :fail
-                   :expected ""
-                   :actual   (:failure first-failure)
-                   :message  "A generator threw an exception.\n"}
+          ;; Exceptions thrown from Spec itself
+          (spec-error? (:failure first-failure))
+          (spec-error-map (:failure first-failure))
 
-                  :else {:type     :fail
-                         :expected ""
-                         :actual   spec-error
-                         :message  (str fn-sym " threw an exception.\n")}))
-              ;; all checks passed
-              (do
-                (swap! failed-args-store (fn [failed]
-                                           (apply dissoc failed (map :sym check-results))))
-                {:type    :pass
-                 :message (str "Generative tests pass for "
-                               (str/join ", " (map :sym check-results)))})))))
+          ;; Generator threw an exception
+          (instance? #?(:clj Throwable :cljs js/Error) (:failure first-failure))
+          {:type     :fail
+           :expected ""
+           :actual   (:failure first-failure)
+           :message  "A generator threw an exception.\n"}
 
-(defn- fully-qualified-namespace
-  [sym]
-  (let [metadata (meta (resolve #?(:clj sym :cljs `sym)))]
-    (when metadata
-      (symbol (str (:ns metadata)) (str (:name metadata))))))
+          :else {:type     :fail
+                 :expected ""
+                 :actual   spec-error
+                 :message  (str fn-sym " threw an exception.\n")}))
+      ;; all checks passed
+      (do
+        (swap! failed-args-store (fn [failed]
+                                   (apply dissoc failed (map :sym check-results))))
+        {:type    :pass
+         :message (str "Generative tests pass for "
+                       (str/join ", " (map :sym check-results)))}))))
+
+#?(:clj (defn- fully-qualified-namespace
+          [sym]
+          (symbol (str *ns*) (str sym))))
 
 (defmacro spec-check
   "Run generative tests for spec conformance on vars named by sym-or-syms, a
@@ -378,19 +383,19 @@
                   ~@(when fspec-iterations [`s/*fspec-iterations* fspec-iterations])
                   ~@(when recursion-limit [`s/*recursion-limit* recursion-limit])]
           (st/check '~syms ~check-opts))
-       (throw (ex-info "Cannot qualify some symbols." {:sym ~syms}))))))
+       (throw (ex-info "Cannot qualify some symbols." {:sym syms}))))))
 
 ;; must be done at compile time for correct line number resolution
-(defmacro do-spec-check-report
-  [sym-or-syms opts]
-  `(let [check-results# (spec-check ~sym-or-syms ~opts)
-         report-map# (report-spec-check check-results#)]
-     (t/do-report report-map#)))
+#?(:clj (defmacro do-spec-check-report
+          [sym-or-syms opts]
+          `(let [check-results# (spec-check ~sym-or-syms ~opts)
+                 report-map# (report-spec-check check-results#)]
+             (t/do-report report-map#))))
 
-#?(:clj (defmethod t/assert-expr 'spec-check
-          [msg form]
-          (let [[_ sym-form opts] form]
-            `(do-spec-check-report ~sym-form ~opts))))
+#?(:clj  (defmethod t/assert-expr 'spec-check
+           [msg form]
+           (let [[_ sym-form opts] form]
+             `(do-spec-check-report ~sym-form ~opts))))
 
 (defmacro defspec-test
   ([name sym-or-syms] `(defspec-test ~name ~sym-or-syms nil))

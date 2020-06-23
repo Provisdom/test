@@ -10,4 +10,7 @@
                       :runner-ns  lambdaisland.chui.shadow.browser-runner
                       :test-dir   "resources/public"
                       :asset-path "/ui"
-                      :ns-regexp  "-test$"}}}
+                      :ns-regexp  "-test$"}
+            :node    {:target    :node-test
+                      :output-to "out/node-tests.js"
+                      :ns-regexp "-test$"}}}

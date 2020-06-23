@@ -1,6 +1,6 @@
 (ns provisdom.test.core-test
   #?(:cljs (:require-macros
-             [provisdom.test.core :refer [is-valid]]))
+             [provisdom.test.core :refer [is-valid with-instrument with-instrument*]]))
   (:require
     [clojure.test :refer [deftest is are testing]]
     [clojure.spec.alpha :as s]
@@ -15,10 +15,10 @@
 
 (deftest t-midje-just
   (are [e a] (t/midje-just e a)
-    [1 1 1] [1 1 1]
-    [1 1 #(and (number? %) (not (== % %)))] [1 1 #?(:clj Double/NaN :cljs js/NaN)])
+             [1 1 1] [1 1 1]
+             [1 1 #(and (number? %) (not (== % %)))] [1 1 #?(:clj Double/NaN :cljs js/NaN)])
   (are [e a] #?(:clj (not (t/midje-just e a)) :cljs (t/midje-just e a))
-    [1 1 1] [1 1 1.0]))
+             [1 1 1] [1 1 1.0]))
 
 (defn my-add
   [x y]
@@ -48,8 +48,8 @@
 
 (s/fdef gen-throws-exception
   :args (s/cat :x (s/with-gen (s/int-in 0 100)
-                    (fn []
-                      (throw (ex-info "fail" {})))))
+                              (fn []
+                                (throw (ex-info "fail" {})))))
   :ret string?)
 
 (comment
@@ -113,20 +113,18 @@
             (is (thrown? ExceptionInfo (my-add 1 "a"))))
           (is (thrown? ClassCastException (my-add 1 "a")))))
 
+(t/defspec-test test-my-add `my-add)
 
-#?(:clj (t/defspec-test test-my-add `my-add))
-
-#?(:clj (deftest test-spec-check-assert
-          (is (spec-check my-add {:test-check {:num-tests 10}}))
-          (is (spec-check my-add {:test-check {:num-tests 10}}))
-          (t/with-spec-check-opts
-            {:test-check {:num-tests 10}}
-            (is (spec-check my-add)))
-          (is (spec-check my-add {:coll-check-limit 10
-                                  :coll-error-limit 10
-                                  :fspec-iterations 10
-                                  :recursion-limit  1
-                                  :test-check       {:num-tests 10}}))))
+(deftest test-spec-check-assert
+  (is (spec-check my-add {:test-check {:num-tests 10}}))
+  (t/with-spec-check-opts
+    {:test-check {:num-tests 10}}
+    (is (spec-check my-add)))
+  (is (spec-check my-add {:coll-check-limit 10
+                          :coll-error-limit 10
+                          :fspec-iterations 10
+                          :recursion-limit  1
+                          :test-check       {:num-tests 10}})))
 
 (deftest data-to-paths-test
   (let [f #'t/data-to-paths]
