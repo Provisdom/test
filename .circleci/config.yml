@@ -15,8 +15,8 @@ jobs:
       - cache/clj:
           steps:
             - run:
-               - name: Run CLJ Tests
-               - command: clojure -A:test
+               name: Run CLJ Tests
+               command: clojure -A:test
 
   test-cljs:
     docker:
