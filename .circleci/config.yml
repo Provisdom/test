@@ -25,15 +25,15 @@ jobs:
     steps:
       - checkout
 
-      - node/install-packages:
-          cache-path: ~/project/node_modules
-          override-ci-command: npm install
+      - node/install-packages
+
+      - run:
+          name: Compile CLJS Karma Tests
+          command: npx shadow-cljs -v compile test-ci
 
       - run:
           name: Run CLJS Karma Tests
-          command: |
-            npx shadow-cljs -v compile test-ci
-            npx karma start --single-run
+          command: npx karma start --single-run
 
 workflows:
   version: 2

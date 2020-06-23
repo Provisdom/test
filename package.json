@@ -1,5 +1,5 @@
 {
-  "name": "utility-belt",
+  "name": "test",
   "devDependencies": {
     "shadow-cljs": "2.10.12",
     "karma": "^2.0.0",
