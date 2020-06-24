@@ -4,7 +4,7 @@ module.exports = function (config) {
         // The directory where the output file lives
         basePath: 'target',
         // The file itself
-        files: ['ci.js'],
+        files: ['karma.js'],
         frameworks: ['cljs-test'],
         plugins: ['karma-cljs-test', 'karma-chrome-launcher'],
         colors: true,
