@@ -1,6 +1,6 @@
 (ns provisdom.test.core-test
   #?(:cljs (:require-macros
-             [provisdom.test.core :refer [is-valid with-instrument with-instrument*]]))
+             [provisdom.test.core]))
   (:require
     [clojure.test :refer [deftest is are testing]]
     [clojure.spec.alpha :as s]

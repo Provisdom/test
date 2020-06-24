@@ -258,10 +258,11 @@
                 ;; exists for backwards compatibility. Eventually this can be removed
                 merge (:test-check base-opts {})))))
 
-(defn spec-test-check
-  ([sym-or-syms] (spec-test-check sym-or-syms {}))
-  ([sym-or-syms opts]
-   (st/check #?(:clj sym-or-syms :cljs 'sym-or-syms) (normalize-spec-test-opts opts))))
+#?(:clj
+   (defn spec-test-check
+     ([sym-or-syms] (spec-test-check sym-or-syms {}))
+     ([sym-or-syms opts]
+      (st/check sym-or-syms (normalize-spec-test-opts opts)))))
 
 (defn fspec-data
   [sym]
