@@ -1,8 +1,3 @@
-{:dev-http {8888 ["./resources/public/"]}
- :deps     {:aliases [:test-cljs :orchestra]}
- :nrepl    {:port 9999}
- :builds   {:app     {:target     :browser
-                      :output-dir "resources/public/js"
-                      :asset-path "/js"}
-            :test-ci {:target    :karma
+{:deps     {:aliases [:test-cljs :orchestra]}
+ :builds   {:test-ci {:target    :karma
                       :output-to "target/ci.js"}}}

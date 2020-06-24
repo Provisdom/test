@@ -10,6 +10,8 @@
     [clojure.spec.gen.alpha :as gen]
     #?(:cljs [orchestra-cljs.spec.test])
     #?(:cljs [cljs.test])
+
+    ;; We require clojure.test for some CLJS code, in order for spec-check to run.
     #?(:cljs [clojure.test.check])
     #?(:cljs [clojure.test.check.properties]))
   #?(:clj (:import (clojure.lang ExceptionInfo)
@@ -57,21 +59,21 @@
   [sym-or-syms & body]
   `(with-instrument* ~[sym-or-syms] ~@body))
 
-(defn instrumentation
-  "Enables instrumentation for the symbols in `instrument` until the `close`
-   method is invoked. Typically used in `with-open`. `instrument` is a collection
-   of symbols to instrument or `:all` for all instrumentable symbols. Will
-   unstrument symbols on close."
-  [{:keys [instrument]}]
-  (let [syms (cond
-               (coll? instrument) instrument
-               (= instrument :all) (st/instrumentable-syms)
-               :else (throw (ex-info "Instrument must be passed a collection of symbols or :all"
-                                     {:instrument instrument})))
-        unstrument-syms (set (filter (complement function-instrumented?) syms))
-        instrument! @instrument-delay]
-    (instrument! syms)
-    #?(:clj (reify Closeable
+#?(:clj (defn instrumentation
+          "Enables instrumentation for the symbols in `instrument` until the `close`
+           method is invoked. Typically used in `with-open`. `instrument` is a collection
+           of symbols to instrument or `:all` for all instrumentable symbols. Will
+           unstrument symbols on close."
+          [{:keys [instrument]}]
+          (let [syms (cond
+                       (coll? instrument) instrument
+                       (= instrument :all) (st/instrumentable-syms)
+                       :else (throw (ex-info "Instrument must be passed a collection of symbols or :all"
+                                             {:instrument instrument})))
+                unstrument-syms (set (filter (complement function-instrumented?) syms))
+                instrument! @instrument-delay]
+            (instrument! syms)
+            (reify Closeable
               (close [_]
                 (st/unstrument unstrument-syms))))))
 
@@ -120,10 +122,10 @@
                                      (when-not valid?
                                        (swap! invalid-store assoc og-spec x))
                                      valid?))
-                                 {:spec      spec
-                                  :overrides overrides
-                                  :path      path
-                                  :form      form}) g 100)
+                        {:spec      spec
+                         :overrides overrides
+                         :path      path
+                         :form      form}) g 100)
        (let [abbr (s/abbrev form)]
          (throw (ex-info (str "Unable to construct gen at: " path " for: " abbr)
                          {::path path ::form form ::failure :no-gen})))))))
