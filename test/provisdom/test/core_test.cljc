@@ -17,8 +17,8 @@
   (are [e a] (t/midje-just e a)
     [1 1 1] [1 1 1]
     [1 1 #(and (number? %) (not (== % %)))] [1 1 #?(:clj Double/NaN :cljs js/NaN)])
-  (are [e a] #?(:clj (not (t/midje-just e a)) :cljs (t/midje-just e a))
-    [1 1 1] [1 1 1.0]))
+  (are [e a] (not (t/midje-just e a))
+    [1 1 1] [1 1 2]))
 
 (defn my-add
   [x y]
