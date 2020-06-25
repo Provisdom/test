@@ -1,31 +1,43 @@
 (ns provisdom.test.core
+  #?(:cljs (:require-macros
+             [provisdom.test.core]
+             [provisdom.test.assertions.cljs]))
   (:require
     [clojure.test :as t]
     [clojure.string :as str]
     [clojure.spec.alpha :as s]
     [clojure.spec.test.alpha :as st]
-    [clojure.spec.gen.alpha :as gen])
-  (:import (clojure.lang ExceptionInfo)
-           (java.io FileNotFoundException Closeable)))
+    [clojure.spec.gen.alpha :as gen]
+    #?(:cljs [orchestra-cljs.spec.test])
+    #?(:cljs [cljs.test])
+
+    ;; We require clojure.test for some CLJS code, in order for spec-check to run.
+    #?(:cljs [clojure.test.check])
+    #?(:cljs [clojure.test.check.properties]))
+  #?(:clj (:import (clojure.lang ExceptionInfo)
+                   (java.io FileNotFoundException Closeable))))
 
 (def instrument-delay
   (delay
-    (let [ost-instrument (try
-                           (requiring-resolve 'orchestra.spec.test/instrument)
-                           (catch FileNotFoundException _ nil))]
-      (or ost-instrument st/instrument))))
+    #?(:clj  (let [ost-instrument (try
+                                    (requiring-resolve 'orchestra.spec.test/instrument)
+                                    (catch FileNotFoundException _ nil))]
+               (or ost-instrument st/instrument))
+       :cljs (constantly []))))
 
 (def unstrument-delay
   (delay
-    (let [ost-unstrument (try
-                           (requiring-resolve 'orchestra.spec.test/unstrument)
-                           (catch FileNotFoundException _ nil))]
-      (or ost-unstrument st/unstrument))))
+    #?(:clj  (let [ost-unstrument (try
+                                    (requiring-resolve 'orchestra.spec.test/unstrument)
+                                    (catch FileNotFoundException _ nil))]
+               (or ost-unstrument st/unstrument))
+       :cljs (constantly []))))
 
 (defn function-instrumented?
   [sym]
-  (let [instrumented-vars @(var-get #'st/instrumented-vars)]
-    (contains? instrumented-vars (resolve sym))))
+  #?(:clj  (let [instrumented-vars @(var-get #'st/instrumented-vars)]
+             (contains? instrumented-vars (resolve sym)))
+     :cljs true))
 
 (defn collectionize
   [x]
@@ -47,23 +59,23 @@
   [sym-or-syms & body]
   `(with-instrument* ~[sym-or-syms] ~@body))
 
-(defn instrumentation
-  "Enables instrumentation for the symbols in `instrument` until the `close`
-   method is invoked. Typically used in `with-open`. `instrument` is a collection
-   of symbols to instrument or `:all` for all instrumentable symbols. Will
-   unstrument symbols on close."
-  [{:keys [instrument]}]
-  (let [syms (cond
-               (coll? instrument) instrument
-               (= instrument :all) (st/instrumentable-syms)
-               :else (throw (ex-info "Instrument must be passed a collection of symbols or :all"
-                                     {:instrument instrument})))
-        unstrument-syms (set (filter (complement function-instrumented?) syms))
-        instrument! @instrument-delay]
-    (instrument! syms)
-    (reify Closeable
-      (close [_]
-        (st/unstrument unstrument-syms)))))
+#?(:clj (defn instrumentation
+          "Enables instrumentation for the symbols in `instrument` until the `close`
+           method is invoked. Typically used in `with-open`. `instrument` is a collection
+           of symbols to instrument or `:all` for all instrumentable symbols. Will
+           unstrument symbols on close."
+          [{:keys [instrument]}]
+          (let [syms (cond
+                       (coll? instrument) instrument
+                       (= instrument :all) (st/instrumentable-syms)
+                       :else (throw (ex-info "Instrument must be passed a collection of symbols or :all"
+                                             {:instrument instrument})))
+                unstrument-syms (set (filter (complement function-instrumented?) syms))
+                instrument! @instrument-delay]
+            (instrument! syms)
+            (reify Closeable
+              (close [_]
+                (st/unstrument unstrument-syms))))))
 
 (defmacro with-instrument2
   [{:keys [orchestra spec]} & body]
@@ -211,21 +223,21 @@
                         (= expected-val (get actual-paths-map path)))))
                   expected-paths-map)))))
 
-(defmethod t/assert-expr 'just
-  [msg form]
-  `(let [expected# ~(nth form 1)
-         actual# ~(nth form 2)
-         result# (midje-just expected# actual#)]
-     (if result#
-       (t/do-report {:type     :pass
-                     :message  ~msg
-                     :expected '~form
-                     :actual   actual#})
-       (t/do-report {:type     :fail
-                     :message  ~msg
-                     :expected '~(nth form 1)
-                     :actual   actual#}))
-     result#))
+#?(:clj (defmethod t/assert-expr 'just
+          [menv msg form]
+          `(let [expected# ~(nth form 1)
+                 actual# ~(nth form 2)
+                 result# (midje-just expected# actual#)]
+             (if result#
+               (t/do-report {:type     :pass
+                             :message  ~msg
+                             :expected '~form
+                             :actual   actual#})
+               (t/do-report {:type     :fail
+                             :message  ~msg
+                             :expected '~(nth form 1)
+                             :actual   actual#}))
+             result#)))
 
 (def ^:dynamic *default-spec-check-opts* {})
 
@@ -246,10 +258,11 @@
                 ;; exists for backwards compatibility. Eventually this can be removed
                 merge (:test-check base-opts {})))))
 
-(defn spec-test-check
-  ([sym-or-syms] (spec-test-check sym-or-syms {}))
-  ([sym-or-syms opts]
-   (st/check sym-or-syms (normalize-spec-test-opts opts))))
+#?(:clj
+   (defn spec-test-check
+     ([sym-or-syms] (spec-test-check sym-or-syms {}))
+     ([sym-or-syms opts]
+      (st/check sym-or-syms (normalize-spec-test-opts opts)))))
 
 (defn fspec-data
   [sym]
@@ -305,7 +318,7 @@
           (spec-error-map (:failure first-failure))
 
           ;; Generator threw an exception
-          (instance? Throwable (:failure first-failure))
+          (instance? #?(:clj Throwable :cljs js/Error) (:failure first-failure))
           {:type     :fail
            :expected ""
            :actual   (:failure first-failure)
@@ -323,11 +336,9 @@
          :message (str "Generative tests pass for "
                        (str/join ", " (map :sym check-results)))}))))
 
-(defn- fully-qualified-namespace
-  [sym]
-  (let [metadata (meta (resolve sym))]
-    (when metadata
-      (symbol (str (:ns metadata)) (str (:name metadata))))))
+#?(:clj (defn- fully-qualified-namespace
+          [sym]
+          (symbol (str *ns*) (str sym))))
 
 (defmacro spec-check
   "Run generative tests for spec conformance on vars named by sym-or-syms, a
@@ -374,19 +385,19 @@
                   ~@(when fspec-iterations [`s/*fspec-iterations* fspec-iterations])
                   ~@(when recursion-limit [`s/*recursion-limit* recursion-limit])]
           (st/check '~syms ~check-opts))
-       (throw (ex-info "Cannot qualify some symbols." {:sym ~syms}))))))
+       (throw (ex-info "Cannot qualify some symbols." {:sym syms}))))))
 
 ;; must be done at compile time for correct line number resolution
-(defmacro do-spec-check-report
-  [sym-or-syms opts]
-  `(let [check-results# (spec-check ~sym-or-syms ~opts)
-         report-map# (report-spec-check check-results#)]
-     (t/do-report report-map#)))
+#?(:clj (defmacro do-spec-check-report
+          [sym-or-syms opts]
+          `(let [check-results# (spec-check ~sym-or-syms ~opts)
+                 report-map# (report-spec-check check-results#)]
+             (t/do-report report-map#))))
 
-(defmethod t/assert-expr 'spec-check
-  [msg form]
-  (let [[_ sym-form opts] form]
-    `(do-spec-check-report ~sym-form ~opts)))
+#?(:clj  (defmethod t/assert-expr 'spec-check
+           [msg form]
+           (let [[_ sym-form opts] form]
+             `(do-spec-check-report ~sym-form ~opts))))
 
 (defmacro defspec-test
   ([name sym-or-syms] `(defspec-test ~name ~sym-or-syms nil))

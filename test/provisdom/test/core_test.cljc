@@ -1,22 +1,24 @@
 (ns provisdom.test.core-test
+  #?(:cljs (:require-macros
+             [provisdom.test.core]))
   (:require
-    [clojure.test :refer :all]
+    [clojure.test :refer [deftest is are testing]]
     [clojure.spec.alpha :as s]
     [clojure.spec.test.alpha :as st]
     [provisdom.test.core :as t])
-  (:import (clojure.lang ExceptionInfo)))
+  #?(:clj (:import (clojure.lang ExceptionInfo))))
 
-(deftest test-macro-expansions
-  (are [expected-form quoted-form] (= expected-form (macroexpand-1 quoted-form))
-    `(is (~'= 1 1) nil) `(t/is= 1 1 nil)
-    `(is (~'not false) "some message") `(t/is-not false "some message")))
+#?(:clj (deftest test-macro-expansions
+          (are [expected-form quoted-form] (= expected-form (macroexpand-1 quoted-form))
+            `(is (~'= 1 1) nil) `(t/is= 1 1 nil)
+            `(is (~'not false) "some message") `(t/is-not false "some message"))))
 
 (deftest t-midje-just
   (are [e a] (t/midje-just e a)
     [1 1 1] [1 1 1]
-    [1 1 #(and (number? %) (not (== % %)))] [1 1 Double/NaN])
+    [1 1 #(and (number? %) (not (== % %)))] [1 1 #?(:clj Double/NaN :cljs js/NaN)])
   (are [e a] (not (t/midje-just e a))
-    [1 1 1] [1 1 1.0]))
+    [1 1 1] [1 1 2]))
 
 (defn my-add
   [x y]
@@ -92,31 +94,28 @@
   (st/instrument `my-add)
   (is (= true (t/function-instrumented? `my-add)))
   (st/unstrument `my-add)
-  (is (= false (t/function-instrumented? `my-add))))
+  (is (= #?(:clj false :cljs true) (t/function-instrumented? `my-add))))
 
+#?(:clj (deftest with-instrument-test
+          (testing "started instrumented"
+            (st/instrument `my-add)
+            (t/with-instrument `my-add
+              (my-add 1 2))
+            (is (thrown? ExceptionInfo (my-add 1 "a")))
+            (st/unstrument `my-add))
+          (testing "started uninstrumented"
+            (t/with-instrument `my-add
+              (is (thrown? ExceptionInfo (my-add 1 "a"))))
+            (is (thrown? ClassCastException (my-add 1 "a"))))))
 
-(deftest with-instrument-test
-  (testing "started instrumented"
-    (st/instrument `my-add)
-    (t/with-instrument `my-add
-      (my-add 1 2))
-    (is (thrown? ExceptionInfo (my-add 1 "a")))
-    (st/unstrument `my-add))
-  (testing "started uninstrumented"
-    (t/with-instrument `my-add
-      (is (thrown? ExceptionInfo (my-add 1 "a"))))
-    (is (thrown? ClassCastException (my-add 1 "a")))))
-
-(deftest instrumentation-test
-  (with-open [_ (t/instrumentation {:instrument [`my-add]})]
-    (is (thrown? ExceptionInfo (my-add 1 "a"))))
-  (is (thrown? ClassCastException (my-add 1 "a"))))
-
+#?(:clj (deftest instrumentation-test
+          (with-open [_ (t/instrumentation {:instrument [`my-add]})]
+            (is (thrown? ExceptionInfo (my-add 1 "a"))))
+          (is (thrown? ClassCastException (my-add 1 "a")))))
 
 (t/defspec-test test-my-add `my-add)
 
 (deftest test-spec-check-assert
-  (is (spec-check my-add {:test-check {:num-tests 10}}))
   (is (spec-check my-add {:test-check {:num-tests 10}}))
   (t/with-spec-check-opts
     {:test-check {:num-tests 10}}
