@@ -1,3 +1,4 @@
 {:deps     {:aliases [:test-cljs :orchestra]}
  :builds   {:test-ci {:target    :karma
-                      :output-to "target/karma.js"}}}
+                      :output-to "target/karma.js"}}
+ :nrepl  {:port 9998}}
