@@ -274,7 +274,7 @@
   [fn-sym]
   (get @failed-args-store fn-sym))
 
-(defn report-spec-check
+(defn spec-check-report
   [check-results]
   (let [first-failure (-> (filter (fn [result]
                                     (not= true (get-in result [:clojure.spec.test.check/ret :result])))
@@ -298,7 +298,8 @@
                           (and (instance? ExceptionInfo ex)
                                (::s/failure (ex-data ex))))
             spec-error-map (fn [ex]
-                             (let [spec-error-message (.getMessage ex)
+                             (let [spec-error-message #?(:clj (.getMessage ex)
+                                                         :cljs (.-message ex))
                                    explain-data (ex-data ex)]
                                {:type     :fail
                                 :expected "n/a"
@@ -391,7 +392,7 @@
 #?(:clj (defmacro do-spec-check-report
           [sym-or-syms opts]
           `(let [check-results# (spec-check ~sym-or-syms ~opts)
-                 report-map# (report-spec-check check-results#)]
+                 report-map# (spec-check-report check-results#)]
              (t/do-report report-map#))))
 
 #?(:clj  (defmethod t/assert-expr 'spec-check

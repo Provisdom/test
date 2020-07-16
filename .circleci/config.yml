@@ -15,8 +15,8 @@ jobs:
       - cache/clj:
           steps:
             - run:
-               name: Run CLJ Tests
-               command: clojure -A:test
+                name: Run CLJ Tests
+                command: clojure -A:test:test-clj-runner
 
   test-cljs:
     docker:
@@ -29,7 +29,7 @@ jobs:
 
       - run:
           name: Compile CLJS Karma Tests
-          command: npx shadow-cljs -v compile test-ci
+          command: npx shadow-cljs compile test-ci
 
       - run:
           name: Run CLJS Karma Tests
