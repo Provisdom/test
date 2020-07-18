@@ -1,6 +1,5 @@
 (ns provisdom.test.core-test
-  #?(:cljs (:require-macros
-             [provisdom.test.core]))
+  #?(:cljs (:require-macros [provisdom.test.core]))
   (:require
     [clojure.test :refer [deftest is are testing]]
     [clojure.spec.alpha :as s]
@@ -116,7 +115,7 @@
 (t/defspec-test test-my-add `my-add)
 
 (deftest test-spec-check-assert
-  (is (spec-check my-add {:test-check {:num-tests 10}}))
+  (is (spec-check [my-add] {:test-check {:num-tests 10}}))
   (t/with-spec-check-opts
     {:test-check {:num-tests 10}}
     (is (spec-check my-add)))
