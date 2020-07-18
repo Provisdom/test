@@ -337,56 +337,62 @@
          :message (str "Generative tests pass for "
                        (str/join ", " (map :sym check-results)))}))))
 
-#?(:clj (defn- fully-qualified-namespace
-          [sym]
-          (symbol (str *ns*) (str sym))))
+#?(:clj
+   (defn- fully-qualified-namespace
+     [sym]
+     (if (qualified-symbol? sym)
+       sym
+       (let [metadata (meta (resolve sym))]
+         (when metadata
+           (symbol (str (:ns metadata)) (str (:name metadata))))))))
 
-(defmacro spec-check
-  "Run generative tests for spec conformance on vars named by sym-or-syms, a
-  symbol or collection of symbols. If sym-or-syms is not specified, check all
-  checkable vars.
+#?(:clj
+   (defmacro spec-check
+     "Run generative tests for spec conformance on vars named by sym-or-syms, a
+     symbol or collection of symbols. If sym-or-syms is not specified, check all
+     checkable vars.
 
-  The opts map includes the following optional keys:
-    :gen - map from spec names to generator
-    :coll-check-limit - The number of elements validated in a collection spec'ed
-      with 'every'
-    :coll-error-limit - The number of errors reported by explain in a collection
-      spec'ed with 'every'
-    :fspec-iterations -
-      The number of times an anonymous fn specified by fspec will be (generatively)
-      tested during conform
-    :recursion-limit - A soft limit on how many times a branching spec
-      (or/alt/*/opt-keys/multi-spec) can be recursed through during generation.
-      After this a non-recursive branch will be chosen.
-  These opts flow through test.check/quick-check:
-    :num-tests - Number of gen tests to run
-    :seed - Can be used to re-run previous tests
-    :max-size - can be used to control the 'size' of generated values. The size
-      will start at 0, and grow up to max-size, as the number of tests increases.
-      Generators will use the size parameter to bound their growth. This
-      prevents, for example, generating a five-thousand element vector on
-      the very first test.
-    :reporter-fn - A callback function that will be called at various points in
-      the test."
-  ([sym-or-syms] `(spec-check ~sym-or-syms {}))
-  ([sym-or-syms opts]
-   (let [syms (if (sequential? sym-or-syms) sym-or-syms [sym-or-syms])
-         syms (->> syms
-                   (map fully-qualified-namespace)
-                   (filter some?)
-                   (vec))
-         {:keys [coll-check-limit
-                 coll-error-limit
-                 fspec-iterations
-                 recursion-limit]} opts
-         check-opts (normalize-spec-test-opts opts)]
-     (if (not-empty syms)
-       `(binding [~@(when coll-check-limit [`s/*coll-check-limit* coll-check-limit])
-                  ~@(when coll-error-limit [`s/*coll-error-limit* coll-error-limit])
-                  ~@(when fspec-iterations [`s/*fspec-iterations* fspec-iterations])
-                  ~@(when recursion-limit [`s/*recursion-limit* recursion-limit])]
-          (st/check '~syms ~check-opts))
-       (throw (ex-info "Cannot qualify some symbols." {:sym syms}))))))
+     The opts map includes the following optional keys:
+       :gen - map from spec names to generator
+       :coll-check-limit - The number of elements validated in a collection spec'ed
+         with 'every'
+       :coll-error-limit - The number of errors reported by explain in a collection
+         spec'ed with 'every'
+       :fspec-iterations -
+         The number of times an anonymous fn specified by fspec will be (generatively)
+         tested during conform
+       :recursion-limit - A soft limit on how many times a branching spec
+         (or/alt/*/opt-keys/multi-spec) can be recursed through during generation.
+         After this a non-recursive branch will be chosen.
+     These opts flow through test.check/quick-check:
+       :num-tests - Number of gen tests to run
+       :seed - Can be used to re-run previous tests
+       :max-size - can be used to control the 'size' of generated values. The size
+         will start at 0, and grow up to max-size, as the number of tests increases.
+         Generators will use the size parameter to bound their growth. This
+         prevents, for example, generating a five-thousand element vector on
+         the very first test.
+       :reporter-fn - A callback function that will be called at various points in
+         the test."
+     ([sym-or-syms] `(spec-check ~sym-or-syms {}))
+     ([sym-or-syms opts]
+      (let [syms (if (sequential? sym-or-syms) sym-or-syms [sym-or-syms])
+            syms (->> syms
+                      (map fully-qualified-namespace)
+                      (filter some?)
+                      (vec))
+            {:keys [coll-check-limit
+                    coll-error-limit
+                    fspec-iterations
+                    recursion-limit]} opts
+            check-opts (normalize-spec-test-opts opts)]
+        (if (not-empty syms)
+          `(binding [~@(when coll-check-limit [`s/*coll-check-limit* coll-check-limit])
+                     ~@(when coll-error-limit [`s/*coll-error-limit* coll-error-limit])
+                     ~@(when fspec-iterations [`s/*fspec-iterations* fspec-iterations])
+                     ~@(when recursion-limit [`s/*recursion-limit* recursion-limit])]
+             (st/check '~syms ~check-opts))
+          (throw (ex-info "Cannot qualify some symbols." {:sym syms})))))))
 
 ;; must be done at compile time for correct line number resolution
 #?(:clj (defmacro do-spec-check-report
@@ -395,10 +401,10 @@
                  report-map# (spec-check-report check-results#)]
              (t/do-report report-map#))))
 
-#?(:clj  (defmethod t/assert-expr 'spec-check
-           [msg form]
-           (let [[_ sym-form opts] form]
-             `(do-spec-check-report ~sym-form ~opts))))
+#?(:clj (defmethod t/assert-expr 'spec-check
+          [msg form]
+          (let [[_ sym-form opts] form]
+            `(do-spec-check-report ~sym-form ~opts))))
 
 (defmacro defspec-test
   ([name sym-or-syms] `(defspec-test ~name ~sym-or-syms nil))
