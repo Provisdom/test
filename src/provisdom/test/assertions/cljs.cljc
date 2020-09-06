@@ -1,8 +1,20 @@
 (ns provisdom.test.assertions.cljs
   (:require
-    [cljs.test :as t]))
+    [cljs.test :as t]
+    #?(:clj [cljs.analyzer.api :as ana])))
 
-#?(:clj (defmethod t/assert-expr 'spec-check
-          [menv msg form]
-          (let [[_ sym-form opts] form]
-            `(provisdom.test.core/do-spec-check-report ~sym-form ~opts))))
+#?(:clj
+   (defn fully-qualify
+     [env sym]
+     (let [{ns-name :ns
+            sym     :name} (ana/resolve env sym)]
+       (symbol (name ns-name) (name sym)))))
+
+#?(:clj
+   (defmethod t/assert-expr 'spec-check
+     [menv msg form]
+     (let [[_ sym-form opts] form
+           syms (if (coll? sym-form) sym-form [sym-form])
+           ;; fully qualify syms here since it requires the cljs analyzer api
+           syms (map #(fully-qualify menv %) syms)]
+       `(provisdom.test.core/do-spec-check-report ~syms ~opts))))
