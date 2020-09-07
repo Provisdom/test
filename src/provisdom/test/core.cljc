@@ -340,11 +340,9 @@
 #?(:clj
    (defn- fully-qualified-namespace
      [sym]
-     (if (qualified-symbol? sym)
-       sym
-       (let [metadata (meta (resolve sym))]
-         (when metadata
-           (symbol (str (:ns metadata)) (str (:name metadata))))))))
+     (let [metadata (meta (resolve sym))]
+       (when metadata
+         (symbol (str (:ns metadata)) (str (:name metadata)))))))
 
 #?(:clj
    (defmacro spec-check
@@ -378,7 +376,9 @@
      ([sym-or-syms opts]
       (let [syms (if (sequential? sym-or-syms) sym-or-syms [sym-or-syms])
             syms (->> syms
-                      (map fully-qualified-namespace)
+                      ;; for cljs, we assume all symbols are qualified
+                      ;; TODO: use cljs analyzer api here to make this work the same way as clj
+                      (map #?(:clj fully-qualified-namespace :cljs identity))
                       (filter some?)
                       (vec))
             {:keys [coll-check-limit
