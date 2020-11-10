@@ -57,7 +57,8 @@
   "Enables instrumentation for `sym-or-syms` while executing `body`. Once `body`
   has completed, unstrument will be called."
   [sym-or-syms & body]
-  `(with-instrument* ~[sym-or-syms] ~@body))
+  (let [sym-or-syms (if (= :all sym-or-syms) `(st/instrumentable-syms) sym-or-syms)]
+    `(with-instrument* ~[sym-or-syms] ~@body)))
 
 #?(:clj (defn instrumentation
           "Enables instrumentation for the symbols in `instrument` until the `close`

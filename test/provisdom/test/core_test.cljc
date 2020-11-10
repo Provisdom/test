@@ -101,7 +101,9 @@
             (t/with-instrument `my-add
               (my-add 1 2))
             (is (thrown? ExceptionInfo (my-add 1 "a")))
-            (st/unstrument `my-add))
+            (st/unstrument `my-add)
+            (t/with-instrument :all
+              (is (= "3" (my-add 1 2)))))
           (testing "started uninstrumented"
             (t/with-instrument `my-add
               (is (thrown? ExceptionInfo (my-add 1 "a"))))
