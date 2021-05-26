@@ -203,7 +203,7 @@
 
   [[is-valid]] is provided as a shortcut to this."
   [spec x]
-  `(= nil (::s/problems (s/explain-data ~spec ~x))))
+  `(= nil (s/explain-data ~spec ~x)))
 
 (defmacro is-valid
   [spec x]
