@@ -17,6 +17,18 @@
   #?(:clj (:import (clojure.lang ExceptionInfo)
                    (java.io FileNotFoundException Closeable))))
 
+(defmacro bind-spec-opts
+  [opts & body]
+  (let [{:keys [coll-check-limit
+                coll-error-limit
+                fspec-iterations
+                recursion-limit]} opts]
+    `(binding [~@(when coll-check-limit [`s/*coll-check-limit* coll-check-limit])
+               ~@(when coll-error-limit [`s/*coll-error-limit* coll-error-limit])
+               ~@(when fspec-iterations [`s/*fspec-iterations* fspec-iterations])
+               ~@(when recursion-limit [`s/*recursion-limit* recursion-limit])]
+       ~@body)))
+
 (def instrument-delay
   (delay
     #?(:clj  (let [ost-instrument (try
@@ -46,12 +58,14 @@
 (defmacro with-instrument*
   [instrument-args & body]
   `(let [syms# (collectionize ~(first instrument-args))
+         spec-opts# ~(second instrument-args)
          should-unstrument# (set (filter (complement function-instrumented?) syms#))]
-     (@instrument-delay ~@instrument-args)
-     (try
-       ~@body
-       (finally
-         (@unstrument-delay (filter should-unstrument# syms#))))))
+     (bind-spec-opts spec-opts#
+       (@instrument-delay ~@instrument-args)
+       (try
+         ~@body
+         (finally
+           (@unstrument-delay (filter should-unstrument# syms#)))))))
 
 (defmacro with-instrument
   "Enables instrumentation for `sym-or-syms` while executing `body`. Once `body`
@@ -70,7 +84,7 @@
                        (coll? instrument) instrument
                        (= instrument :all) (st/instrumentable-syms)
                        :else (throw (ex-info "Instrument must be passed a collection of symbols or :all"
-                                             {:instrument instrument})))
+                                      {:instrument instrument})))
                 unstrument-syms (set (filter (complement function-instrumented?) syms))
                 instrument! @instrument-delay]
             (instrument! syms)
@@ -84,12 +98,12 @@
                              `(st/instrument ~@spec))
                            (when orchestra
                              `(orchestra.spec.test/instrument ~@orchestra))]
-                          (filter some?))
+                       (filter some?))
         after-forms (->> [(when spec
                             `(orchestra.spec.test/unstrument ~@(take 1 spec)))
                           (when orchestra
                             `(orchestra.spec.test/unstrument ~@(take 1 orchestra)))]
-                         (filter some?))]
+                      (filter some?))]
     `(do
        ~@before-forms
        (try
@@ -115,9 +129,9 @@
    ;;(prn {:spec spec :over overrides :path path :form form})
    (let [spec (#'s/specize og-spec)]
      (if-let [g (or (when-let [gfn (or (get overrides (or (#'s/spec-name spec) spec))
-                                       (get overrides path))]
+                                     (get overrides path))]
                       (gfn))
-                    (s/gen* spec overrides path rmap))]
+                  (s/gen* spec overrides path rmap))]
        (gen/such-that (with-meta (fn [x]
                                    (let [valid? (s/valid? spec x)]
                                      (when-not valid?
@@ -129,7 +143,7 @@
                          :form      form}) g 100)
        (let [abbr (s/abbrev form)]
          (throw (ex-info (str "Unable to construct gen at: " path " for: " abbr)
-                         {::path path ::form form ::failure :no-gen})))))))
+                  {::path path ::form form ::failure :no-gen})))))))
 
 (defmacro debug-slow-gen
   [{:keys [gen spec samples max-tries]
@@ -139,21 +153,21 @@
   `(let [gen# (or ~gen (s/gen ~spec))
          invalid-store# (atom {})]
      (provisdom.test.core/such-that-override {:max-tries ~max-tries}
-                                             (with-redefs [s/gensub (fn [spec# overrides# path# rmap# form#]
-                                                                      (my-gensub spec# overrides# path# rmap# form# invalid-store#))]
-                                               (do
-                                                 (try
-                                                   (doall (gen/sample gen# ~samples))
-                                                   :success
+       (with-redefs [s/gensub (fn [spec# overrides# path# rmap# form#]
+                                (my-gensub spec# overrides# path# rmap# form# invalid-store#))]
+         (do
+           (try
+             (doall (gen/sample gen# ~samples))
+             :success
 
-                                                   (catch ExceptionInfo ex#
-                                                     (if (:max-tries (ex-data ex#))
-                                                       (when ~spec
-                                                         (let [failed# (get @invalid-store# ~spec)]
-                                                           (binding [*out* *err*] (println "Failed such that"))
-                                                           (def ~(symbol (str *ns*) "s-failed-val") failed#)
-                                                           @invalid-store#))
-                                                       (throw ex#)))))))))
+             (catch ExceptionInfo ex#
+               (if (:max-tries (ex-data ex#))
+                 (when ~spec
+                   (let [failed# (get @invalid-store# ~spec)]
+                     (binding [*out* *err*] (println "Failed such that"))
+                     (def ~(symbol (str *ns*) "s-failed-val") failed#)
+                     @invalid-store#))
+                 (throw ex#)))))))))
 
 (defmacro is=
   ([expected actual] `(is= ~expected ~actual nil))
@@ -168,10 +182,10 @@
   [expected actual]
   (if (= (count expected) (count actual))
     (every? true?
-            (map (fn [e a]
-                   (if (fn? e)
-                     (e a)
-                     (= e a))) expected actual))
+      (map (fn [e a]
+             (if (fn? e)
+               (e a)
+               (= e a))) expected actual))
     false))
 
 (defn- data-to-paths
@@ -216,13 +230,13 @@
    (let [expected-paths-map (data-to-paths expected)
          actual-paths-map (data-to-paths actual)]
      (and (= (set (keys expected-paths-map))
-             (set (keys actual-paths-map)))
-          (every? (fn [[path expected-val]]
-                    (let [actual-val (get actual-paths-map path)]
-                      (if (number? expected-val)
-                        (approx= expected-val actual-val tolerance)
-                        (= expected-val (get actual-paths-map path)))))
-                  expected-paths-map)))))
+            (set (keys actual-paths-map)))
+       (every? (fn [[path expected-val]]
+                 (let [actual-val (get actual-paths-map path)]
+                   (if (number? expected-val)
+                     (approx= expected-val actual-val tolerance)
+                     (= expected-val (get actual-paths-map path)))))
+         expected-paths-map)))))
 
 #?(:clj (defmethod t/assert-expr 'just
           [menv msg form]
@@ -254,10 +268,10 @@
   [opts]
   (let [base-opts (merge *default-spec-check-opts* opts)]
     (-> base-opts
-        (assoc :clojure.spec.test.check/opts (select-keys opts quick-check-stc-keys))
-        (update :clojure.spec.test.check/opts
-                ;; exists for backwards compatibility. Eventually this can be removed
-                merge (:test-check base-opts {})))))
+      (assoc :clojure.spec.test.check/opts (select-keys opts quick-check-stc-keys))
+      (update :clojure.spec.test.check/opts
+        ;; exists for backwards compatibility. Eventually this can be removed
+        merge (:test-check base-opts {})))))
 
 #?(:clj
    (defn spec-test-check
@@ -279,8 +293,8 @@
   [check-results]
   (let [first-failure (-> (filter (fn [result]
                                     (not= true (get-in result [:clojure.spec.test.check/ret :result])))
-                                  check-results)
-                          (first))]
+                            check-results)
+                        (first))]
     (if first-failure
       ;; reasons for a check to fail:
       ;; - generator threw an exception: test.check results
@@ -294,10 +308,10 @@
             ;; args used during the failed function call
             failing-args (first (:fail test-check-ret))
             spec-error (-> (:result-data test-check-ret)
-                           :clojure.test.check.properties/error)
+                         :clojure.test.check.properties/error)
             spec-error? (fn [ex]
                           (and (instance? ExceptionInfo ex)
-                               (::s/failure (ex-data ex))))
+                            (::s/failure (ex-data ex))))
             spec-error-map (fn [ex]
                              (let [spec-error-message #?(:clj (.getMessage ex)
                                                          :cljs (.-message ex))
@@ -306,10 +320,10 @@
                                 :expected "n/a"
                                 :actual   "n/a"
                                 :message  (str spec-error-message " (seed: " seed ")" "\n\n"
-                                               (with-out-str (s/explain-out explain-data)) "\n"
-                                               "Args:" "\n\n"
-                                               (pr-str failing-args) "\n\n"
-                                               "---------------")}))]
+                                            (with-out-str (s/explain-out explain-data)) "\n"
+                                            "Args:" "\n\n"
+                                            (pr-str failing-args) "\n\n"
+                                            "---------------")}))]
         (swap! failed-args-store assoc fn-sym failing-args)
         (cond
           (spec-error? spec-error)
@@ -336,7 +350,7 @@
                                    (apply dissoc failed (map :sym check-results))))
         {:type    :pass
          :message (str "Generative tests pass for "
-                       (str/join ", " (map :sym check-results)))}))))
+                    (str/join ", " (map :sym check-results)))}))))
 
 #?(:clj
    (defn- fully-qualified-namespace
@@ -377,22 +391,14 @@
      ([sym-or-syms opts]
       (let [syms (if (sequential? sym-or-syms) sym-or-syms [sym-or-syms])
             syms (->> syms
-                      ;; for cljs, we assume all symbols are qualified
-                      ;; TODO: use cljs analyzer api here to make this work the same way as clj
-                      (map #?(:clj fully-qualified-namespace :cljs identity))
-                      (filter some?)
-                      (vec))
-            {:keys [coll-check-limit
-                    coll-error-limit
-                    fspec-iterations
-                    recursion-limit]} opts
+                   ;; for cljs, we assume all symbols are qualified
+                   ;; TODO: use cljs analyzer api here to make this work the same way as clj
+                   (map #?(:clj fully-qualified-namespace :cljs identity))
+                   (filter some?)
+                   (vec))
             check-opts (normalize-spec-test-opts opts)]
         (if (not-empty syms)
-          `(binding [~@(when coll-check-limit [`s/*coll-check-limit* coll-check-limit])
-                     ~@(when coll-error-limit [`s/*coll-error-limit* coll-error-limit])
-                     ~@(when fspec-iterations [`s/*fspec-iterations* fspec-iterations])
-                     ~@(when recursion-limit [`s/*recursion-limit* recursion-limit])]
-             (st/check '~syms ~check-opts))
+          `(bind-spec-opts ~opts (st/check '~syms ~check-opts))
           (throw (ex-info "Cannot qualify some symbols." {:sym syms})))))))
 
 ;; must be done at compile time for correct line number resolution

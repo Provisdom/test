@@ -7,6 +7,10 @@
     [provisdom.test.core :as t])
   #?(:clj (:import (clojure.lang ExceptionInfo))))
 
+(deftest bind-spec-opts-unit-test
+  (t/bind-spec-opts {:fspec-iterations 10}
+    (is (= 10 s/*fspec-iterations*))))
+
 #?(:clj (deftest test-macro-expansions
           (are [expected-form quoted-form] (= expected-form (macroexpand-1 quoted-form))
             `(is (~'= 1 1) nil) `(t/is= 1 1 nil)
