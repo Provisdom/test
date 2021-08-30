@@ -58,9 +58,8 @@
 (defmacro with-instrument*
   [instrument-args & body]
   `(let [syms# (collectionize ~(first instrument-args))
-         spec-opts# ~(second instrument-args)
          should-unstrument# (set (filter (complement function-instrumented?) syms#))]
-     (bind-spec-opts spec-opts#
+     (bind-spec-opts ~(second instrument-args)
        (@instrument-delay ~@instrument-args)
        (try
          ~@body
