@@ -1,9 +1,8 @@
 {:paths   ["src"]
- :deps    {expound/expound {:mvn/version "0.8.5"}}
- :aliases {:orchestra       {:extra-deps {orchestra/orchestra {:mvn/version "2020.07.12-1"}}}
+ :aliases {:orchestra       {:extra-deps {orchestra/orchestra {:mvn/version "2021.01.01-1"}}}
            :test            {:extra-paths ["test"]
-                             :extra-deps  {org.clojure/test.check {:mvn/version "1.1.0"}}}
+                             :extra-deps  {org.clojure/test.check {:mvn/version "1.1.1"}}}
            :test-clj-runner {:extra-deps {com.cognitect/test-runner {:git/url "https://github.com/cognitect-labs/test-runner.git"
-                                                                     :sha     "6ec7f8eef509cd14d831e8cc16e856b31327a862"}}
+                                                                     :sha     "3f288f1f16d167723ad87cc35b1dfee3c1681e10"}}
                              :main-opts  ["-m" "cognitect.test-runner"]}
-           :test-cljs       {:extra-deps {thheller/shadow-cljs {:mvn/version "2.11.1"}}}}}
+           :test-cljs       {:extra-deps {thheller/shadow-cljs {:mvn/version "2.28.21"}}}}}
