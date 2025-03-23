@@ -1,0 +1,8 @@
+#kaocha/v1
+        {:reporter                      #profile {:default kaocha.report/dots
+                                                  :ci      kaocha.report/documentation}
+         :color?                        #profile {:default true :ci false}
+         :plugins                       #profile {:default []
+                                                  :ci      [:kaocha.plugin/print-invocations
+                                                            :kaocha.plugin/profiling]}
+         :kaocha.plugin.profiling/count 10}
