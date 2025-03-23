@@ -353,10 +353,15 @@
 
 #?(:clj
    (defn- fully-qualified-namespace
-     [sym]
-     (let [metadata (meta (resolve sym))]
-       (when metadata
-         (symbol (str (:ns metadata)) (str (:name metadata)))))))
+     [env sym]
+     (if (:ns env)
+       (let [resolve (requiring-resolve 'cljs.analyzer.api/resolve)
+             {ns-sym :ns name-sym :name} (resolve env sym)]
+         (when (and ns-sym name-sym)
+           (symbol (str ns-sym) (-> name-sym name str))))
+       (let [metadata (meta (resolve sym))]
+         (when metadata
+           (symbol (str (:ns metadata)) (str (:name metadata))))))))
 
 #?(:clj
    (defmacro spec-check
@@ -390,15 +395,13 @@
      ([sym-or-syms opts]
       (let [syms (if (sequential? sym-or-syms) sym-or-syms [sym-or-syms])
             syms (->> syms
-                   ;; for cljs, we assume all symbols are qualified
-                   ;; TODO: use cljs analyzer api here to make this work the same way as clj
-                   (map #?(:clj fully-qualified-namespace :cljs identity))
+                   (map #(fully-qualified-namespace &env %))
                    (filter some?)
                    (vec))
             check-opts (normalize-spec-test-opts opts)]
         (if (not-empty syms)
           `(bind-spec-opts ~opts (st/check '~syms ~check-opts))
-          (throw (ex-info "Cannot qualify some symbols." {:sym syms})))))))
+          (throw (ex-info "Cannot qualify some symbols." {:syms syms})))))))
 
 ;; must be done at compile time for correct line number resolution
 #?(:clj (defmacro do-spec-check-report
