@@ -31,7 +31,7 @@ jobs:
           restore-keys: cljdeps-
 
       - name: Run CLJ Tests
-        run: clojure -M:test:test-clj-runner
+        run: ./bin/kaocha --profile ci
 
   test-cljs:
     runs-on: ubuntu-latest
