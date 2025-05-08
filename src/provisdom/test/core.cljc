@@ -55,16 +55,32 @@
   [x]
   (if (coll? x) x [x]))
 
+(defn with-instrument-impl
+  [{:keys [sym-or-syms f opts instrument unstrument]
+    :or   {instrument @instrument-delay
+           unstrument @unstrument-delay}}]
+  (let [syms (collectionize sym-or-syms)
+        unstrument-syms (into [] (remove function-instrumented?) syms)
+        {:keys [coll-check-limit
+                coll-error-limit
+                fspec-iterations
+                recursion-limit]} opts]
+    (binding [s/*coll-check-limit* (or coll-check-limit s/*coll-check-limit*)
+              s/*coll-error-limit* (or coll-error-limit s/*coll-error-limit*)
+              s/*fspec-iterations* (or fspec-iterations s/*fspec-iterations*)
+              s/*recursion-limit* (or recursion-limit s/*recursion-limit*)]
+      (instrument syms opts)
+      (try
+        (f)
+        (finally
+          (unstrument unstrument-syms))))))
+
 (defmacro with-instrument*
   [instrument-args & body]
-  `(let [syms# (collectionize ~(first instrument-args))
-         should-unstrument# (set (filter (complement function-instrumented?) syms#))]
-     (bind-spec-opts ~(second instrument-args)
-       (@instrument-delay ~@instrument-args)
-       (try
-         ~@body
-         (finally
-           (@unstrument-delay (filter should-unstrument# syms#)))))))
+  `(with-instrument-impl
+     {:sym-or-syms ~(first instrument-args)
+      :f           (fn [] ~@body)
+      :opts        ~(second instrument-args)}))
 
 (defmacro with-instrument
   "Enables instrumentation for `sym-or-syms` while executing `body`. Once `body`

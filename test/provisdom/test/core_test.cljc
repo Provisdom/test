@@ -88,8 +88,8 @@
 
 (s/fdef cannot-satisfy-such-that
   :args (s/and (s/cat :x (s/int-in 0 100) :y (s/int-in 0 100))
-               (fn [{:keys [x y]}]
-                 (= x (/ (inc y) 10))))
+          (fn [{:keys [x y]}]
+            (= x (/ (inc y) 10))))
   :ret string?)
 
 (deftest function-instrumented?-test
@@ -99,19 +99,20 @@
   (st/unstrument `my-add)
   (is (= #?(:clj false :cljs true) (t/function-instrumented? `my-add))))
 
-#?(:clj (deftest with-instrument-test
-          (testing "started instrumented"
-            (st/instrument `my-add)
-            (t/with-instrument `my-add
-              (my-add 1 2))
-            (is (thrown? ExceptionInfo (my-add 1 "a")))
-            (st/unstrument `my-add)
-            (t/with-instrument :all
-              (is (= "3" (my-add 1 2)))))
-          (testing "started uninstrumented"
-            (t/with-instrument `my-add
-              (is (thrown? ExceptionInfo (my-add 1 "a"))))
-            (is (thrown? ClassCastException (my-add 1 "a"))))))
+#?(:clj
+   (deftest with-instrument-test
+     (testing "started instrumented"
+       (st/instrument `my-add)
+       (t/with-instrument `my-add
+         (my-add 1 2))
+       (is (thrown-with-msg? ExceptionInfo #"Call to" (my-add 1 "a")))
+       (is (= [`my-add] (st/unstrument `my-add)))
+       (t/with-instrument :all
+         (is (= "3" (my-add 1 2)))))
+     (testing "started uninstrumented"
+       (t/with-instrument `my-add
+         (is (thrown-with-msg? ExceptionInfo #"Call to" (my-add 1 "a"))))
+       (is (thrown? ClassCastException (my-add 1 "a"))))))
 
 #?(:clj (deftest instrumentation-test
           (with-open [_ (t/instrumentation {:instrument [`my-add]})]
@@ -136,17 +137,17 @@
     (is (= {[:a 0]  1.0
             [:b :c] 1.0
             [:set]  #{1 2 3}}
-           (f {:a   [1.0]
-               :b   {:c 1.0}
-               :set #{1 2 3}}))
-        "map expansion")
+          (f {:a   [1.0]
+              :b   {:c 1.0}
+              :set #{1 2 3}}))
+      "map expansion")
     (is (= {[0] 1.0
             [1] 2.0}
-           (f [1.0 2.0]))
-        "coll expansion")
+          (f [1.0 2.0]))
+      "coll expansion")
     (is (= {[] 1.0}
-           (f 1.0))
-        "not coll or map expansion")))
+          (f 1.0))
+      "not coll or map expansion")))
 
 (deftest approx=-test
   (is (t/approx= 1.0 1.0))
