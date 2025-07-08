@@ -1,4 +1,6 @@
-{:paths   ["src"]
+{:deps    {provisdom/utility-belt {:git/url "https://github.com/Provisdom/utility-belt.git"
+                                   :sha     "61f4ccd3dc037e7b2fafb8325d210f9f44f1ea32"}}
+ :paths   ["src"]
  :aliases {:orchestra       {:extra-deps {orchestra/orchestra {:mvn/version "2021.01.01-1"}}}
            :test            {:extra-paths ["test"]
                              :extra-deps  {org.clojure/test.check {:mvn/version "1.1.1"}}}
