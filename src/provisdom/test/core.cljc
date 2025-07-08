@@ -8,7 +8,7 @@
     [clojure.spec.alpha :as s]
     [clojure.spec.test.alpha :as st]
     [clojure.spec.gen.alpha :as gen]
-    [provisdom.test.spec-check :as p.st]
+    #?(:clj [provisdom.test.spec-check :as p.st])
     #?(:cljs [orchestra-cljs.spec.test])
     #?(:cljs [cljs.test])
 
@@ -380,6 +380,12 @@
          (when metadata
            (symbol (str (:ns metadata)) (str (:name metadata))))))))
 
+#?(:clj (defmacro -check-1
+          [syms check-opts]
+          (if (:ns &env)
+            (st/check syms check-opts)
+            `(p.st/check '~syms ~check-opts))))
+
 #?(:clj
    (defmacro spec-check
      "Run generative tests for spec conformance on vars named by sym-or-syms, a
@@ -417,7 +423,7 @@
                    (vec))
             check-opts (normalize-spec-test-opts opts)]
         (if (not-empty syms)
-          `(bind-spec-opts ~opts (p.st/check '~syms ~check-opts))
+          `(bind-spec-opts ~opts (-check-1 '~syms ~check-opts))
           (throw (ex-info "Cannot qualify some symbols." {:syms syms})))))))
 
 ;; must be done at compile time for correct line number resolution
