@@ -384,7 +384,7 @@
           [syms check-opts]
           (if (:ns &env)
             (st/check syms check-opts)
-            `(p.st/check '~syms ~check-opts))))
+            `(p.st/check ~syms ~check-opts))))
 
 #?(:clj
    (defmacro spec-check
