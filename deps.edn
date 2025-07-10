@@ -1,5 +1,5 @@
 {:deps    {provisdom/utility-belt {:git/url "https://github.com/Provisdom/utility-belt.git"
-                                   :sha     "561770287b8cfb09b3fcf064e920d44891eb51f3"}}
+                                   :sha     "c7bf8373468bce3aca4d1169a374199834207183"}}
  :paths   ["src"]
  :aliases {:orchestra       {:extra-deps {orchestra/orchestra {:mvn/version "2021.01.01-1"}}}
            :test            {:extra-paths ["test"]
