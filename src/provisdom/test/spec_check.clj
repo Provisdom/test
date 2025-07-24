@@ -46,7 +46,8 @@ with explain-data + ::s/failure."
       (let [ret (try
                   (apply f args)
                   (catch Throwable t {::throwable t}))
-            throwable (::throwable ret)
+            ;; must use contains? to handle sorted set case
+            throwable (when (and (map? ret) (contains? ret ::throwable)) (::throwable ret))
             _ (when (and throwable (not (check-throwable-ret throws throwable)))
                 (throw throwable))
             cret (when (and (not throwable) (:ret specs)) (s/conform (:ret specs) ret))]
