@@ -41,8 +41,7 @@
 
 (comment
   (deftest return-does-not-pass-spec-test
-    (is (spec-check return-does-not-pass-spec)))
-  )
+    (is (spec-check return-does-not-pass-spec))))
 
 
 (defn gen-throws-exception
@@ -57,14 +56,12 @@
 
 (comment
   (deftest gen-throws-exception-test
-    (is (spec-check gen-throws-exception)))
-  )
+    (is (spec-check gen-throws-exception))))
 
 
 (comment
   (deftest return-does-not-pass-spec-test
-    (is (spec-check return-does-not-pass-spec)))
-  )
+    (is (spec-check return-does-not-pass-spec))))
 
 
 (defn throws-exception
@@ -78,8 +75,7 @@
 
 (comment
   (deftest throws-exception-test
-    (is (spec-check throws-exception)))
-  )
+    (is (spec-check throws-exception))))
 
 
 (defn cannot-satisfy-such-that
@@ -150,9 +146,41 @@
       "not coll or map expansion")))
 
 (deftest approx=-test
-  (is (t/approx= 1.0 1.0))
-  (is (t/approx= 1.0 1.001 1e-2))
-  (is (not (t/approx= 1.0 1.01 1e-2))))
+  (testing "Default tolerance (1e-6)"
+    (is (t/approx= 1.0 1.0))
+    (is (t/approx= 1.0 1.000001))
+    (is (not (t/approx= 1.0 1.00001)))
+    (is (t/approx= 0.0 0.0))
+    (is (t/approx= -1.0 -1.0))
+    (is (t/approx= 1000000.0 1000000.0000009)))
+
+  (testing "Custom tolerance"
+    (is (t/approx= 1.0 1.001 :tolerance 1e-2))
+    (is (not (t/approx= 1.0 1.01 :tolerance 1e-2)))
+    (is (t/approx= 1.0 1.01 :tolerance 1e-1)))
+
+  (testing "Infinity cases"
+    (is (t/approx= Double/POSITIVE_INFINITY Double/POSITIVE_INFINITY))
+    (is (t/approx= Double/NEGATIVE_INFINITY Double/NEGATIVE_INFINITY))
+    (is (not (t/approx= Double/POSITIVE_INFINITY Double/NEGATIVE_INFINITY)))
+    (is (not (t/approx= Double/POSITIVE_INFINITY 1000.0)))
+    (is (not (t/approx= 1000.0 Double/POSITIVE_INFINITY)))
+    (is (not (t/approx= Double/NEGATIVE_INFINITY 1000.0)))
+    (is (not (t/approx= 1000.0 Double/NEGATIVE_INFINITY)))
+    (is (not (t/approx= Double/POSITIVE_INFINITY Double/NEGATIVE_INFINITY :tolerance 1e10))))
+
+  (testing "NaN cases without nan-equal? flag"
+    (is (not (t/approx= Double/NaN Double/NaN)))
+    (is (not (t/approx= Double/NaN 1.0)))
+    (is (not (t/approx= 1.0 Double/NaN)))
+    (is (not (t/approx= Double/NaN Double/POSITIVE_INFINITY)))
+    (is (not (t/approx= Double/POSITIVE_INFINITY Double/NaN))))
+
+  (testing "NaN cases with nan-equal? true"
+    (is (t/approx= Double/NaN Double/NaN :nan-equal? true))
+    (is (not (t/approx= Double/NaN 1.0 :nan-equal? true)))
+    (is (not (t/approx= 1.0 Double/NaN :nan-equal? true)))
+    (is (not (t/approx= Double/NaN Double/POSITIVE_INFINITY :nan-equal? true)))))
 
 (deftest is-valid-test
   (t/is-valid int? 1))
@@ -167,6 +195,7 @@
         {:a 1.0}
         {:a 1.001}
         {:tolerance 1e-2}))
+  (is (t/data-approx= [[1.0000001]] [[1.0]]))
   (is (not (t/data-approx= {:a 1} {:b 1})))
   (is (not (t/data-approx=
              {:a 1.0}

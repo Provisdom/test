@@ -18,6 +18,9 @@
   #?(:clj (:import (clojure.lang ExceptionInfo)
                    (java.io FileNotFoundException Closeable))))
 
+(s/def ::tolerance (s/double-in :min 0 :max 1000 :NaN? false :infinite? false))
+(s/def ::nan-equal? boolean?)
+
 (defmacro bind-spec-opts
   [opts & body]
   (let [{:keys [coll-check-limit
@@ -222,9 +225,31 @@
     (data-to-paths' x {} [])))
 
 (defn approx=
-  ([x1 x2] (approx= x1 x2 1e-6))
-  ([x1 x2 tolerance]
-   (< (Math/abs (double (- x1 x2))) tolerance)))
+  ([x1 x2] (approx= x1 x2 :tolerance 1e-6))
+  ([x1 x2 & {:keys [tolerance nan-equal?]}]
+   (cond
+     ;; Both are infinite - check if same infinity
+     (and (Double/isInfinite x1) (Double/isInfinite x2))
+     (= x1 x2)
+
+     ;; One is infinite, other is not - never equal
+     (or (Double/isInfinite x1) (Double/isInfinite x2))
+     false
+
+     ;; Both are NaN - consider equal (optional behavior)
+     (and nan-equal? (Double/isNaN x1) (Double/isNaN x2))
+     true
+
+     ;; One is NaN, other is not - never equal
+     (or (Double/isNaN x1) (Double/isNaN x2))
+     false
+
+     :else
+     (< (Math/abs (double (- x1 x2))) tolerance))))
+
+(s/fdef approx=
+  :args (s/cat :x1 number? :x2 number? :opts (s/? (s/keys* :req-un [::tolerance])))
+  :ret boolean?)
 
 (defmacro no-problems
   "Returns true if x has no problems when validated against spec, false otherwise.
@@ -241,8 +266,8 @@
     `(~'is ~form)))
 
 (defn data-approx=
-  ([expected actual] (data-approx= expected actual {:tolerance 1e-6}))
-  ([expected actual {:keys [tolerance]}]
+  ([expected actual] (data-approx= expected actual :tolerance 1e-6))
+  ([expected actual & {:as approx=-opts}]
    (let [expected-paths-map (data-to-paths expected)
          actual-paths-map (data-to-paths actual)]
      (and (= (set (keys expected-paths-map))
@@ -250,7 +275,7 @@
        (every? (fn [[path expected-val]]
                  (let [actual-val (get actual-paths-map path)]
                    (if (number? expected-val)
-                     (approx= expected-val actual-val tolerance)
+                     (approx= expected-val actual-val approx=-opts)
                      (= expected-val (get actual-paths-map path)))))
          expected-paths-map)))))
 
