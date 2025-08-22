@@ -39,11 +39,6 @@
   :args (s/cat :x (s/int-in 0 100))
   :ret string?)
 
-(comment
-  (deftest return-does-not-pass-spec-test
-    (is (spec-check return-does-not-pass-spec))))
-
-
 (defn gen-throws-exception
   [x]
   x)
@@ -54,16 +49,6 @@
                       (throw (ex-info "fail" {})))))
   :ret string?)
 
-(comment
-  (deftest gen-throws-exception-test
-    (is (spec-check gen-throws-exception))))
-
-
-(comment
-  (deftest return-does-not-pass-spec-test
-    (is (spec-check return-does-not-pass-spec))))
-
-
 (defn throws-exception
   [x]
   (throw (ex-info "i throw" {}))
@@ -72,11 +57,6 @@
 (s/fdef throws-exception
   :args (s/cat :x (s/int-in 0 100))
   :ret int?)
-
-(comment
-  (deftest throws-exception-test
-    (is (spec-check throws-exception))))
-
 
 (defn cannot-satisfy-such-that
   [x y]
@@ -159,28 +139,31 @@
     (is (not (t/approx= 1.0 1.01 :tolerance 1e-2)))
     (is (t/approx= 1.0 1.01 :tolerance 1e-1)))
 
-  (testing "Infinity cases"
-    (is (t/approx= Double/POSITIVE_INFINITY Double/POSITIVE_INFINITY))
-    (is (t/approx= Double/NEGATIVE_INFINITY Double/NEGATIVE_INFINITY))
-    (is (not (t/approx= Double/POSITIVE_INFINITY Double/NEGATIVE_INFINITY)))
-    (is (not (t/approx= Double/POSITIVE_INFINITY 1000.0)))
-    (is (not (t/approx= 1000.0 Double/POSITIVE_INFINITY)))
-    (is (not (t/approx= Double/NEGATIVE_INFINITY 1000.0)))
-    (is (not (t/approx= 1000.0 Double/NEGATIVE_INFINITY)))
-    (is (not (t/approx= Double/POSITIVE_INFINITY Double/NEGATIVE_INFINITY :tolerance 1e10))))
+  #?(:clj
+     (testing "Infinity cases"
+       (is (t/approx= Double/POSITIVE_INFINITY Double/POSITIVE_INFINITY))
+       (is (t/approx= Double/NEGATIVE_INFINITY Double/NEGATIVE_INFINITY))
+       (is (not (t/approx= Double/POSITIVE_INFINITY Double/NEGATIVE_INFINITY)))
+       (is (not (t/approx= Double/POSITIVE_INFINITY 1000.0)))
+       (is (not (t/approx= 1000.0 Double/POSITIVE_INFINITY)))
+       (is (not (t/approx= Double/NEGATIVE_INFINITY 1000.0)))
+       (is (not (t/approx= 1000.0 Double/NEGATIVE_INFINITY)))
+       (is (not (t/approx= Double/POSITIVE_INFINITY Double/NEGATIVE_INFINITY :tolerance 1e10)))))
 
-  (testing "NaN cases without nan-equal? flag"
-    (is (not (t/approx= Double/NaN Double/NaN)))
-    (is (not (t/approx= Double/NaN 1.0)))
-    (is (not (t/approx= 1.0 Double/NaN)))
-    (is (not (t/approx= Double/NaN Double/POSITIVE_INFINITY)))
-    (is (not (t/approx= Double/POSITIVE_INFINITY Double/NaN))))
+  #?(:clj
+     (testing "NaN cases without nan-equal? flag"
+       (is (not (t/approx= Double/NaN Double/NaN)))
+       (is (not (t/approx= Double/NaN 1.0)))
+       (is (not (t/approx= 1.0 Double/NaN)))
+       (is (not (t/approx= Double/NaN Double/POSITIVE_INFINITY)))
+       (is (not (t/approx= Double/POSITIVE_INFINITY Double/NaN)))))
 
-  (testing "NaN cases with nan-equal? true"
-    (is (t/approx= Double/NaN Double/NaN :nan-equal? true))
-    (is (not (t/approx= Double/NaN 1.0 :nan-equal? true)))
-    (is (not (t/approx= 1.0 Double/NaN :nan-equal? true)))
-    (is (not (t/approx= Double/NaN Double/POSITIVE_INFINITY :nan-equal? true)))))
+  #?(:clj
+     (testing "NaN cases with nan-equal? true"
+       (is (t/approx= Double/NaN Double/NaN :nan-equal? true))
+       (is (not (t/approx= Double/NaN 1.0 :nan-equal? true)))
+       (is (not (t/approx= 1.0 Double/NaN :nan-equal? true)))
+       (is (not (t/approx= Double/NaN Double/POSITIVE_INFINITY :nan-equal? true))))))
 
 (deftest is-valid-test
   (t/is-valid int? 1))
