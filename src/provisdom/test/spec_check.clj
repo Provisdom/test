@@ -118,7 +118,7 @@ with explain-data + ::s/failure."
     {:s      s
      :v      v
      :spec   (when v (s/get-spec v))
-     :throws (-> @spec-ext/_*fdef-throws (get s) normalize-fdef-throws)}))
+     :throws (-> s (spec-ext/get-meta) :throws normalize-fdef-throws)}))
 
 (defn- validate-check-opts
   [opts]
