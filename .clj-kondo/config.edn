@@ -1,0 +1,1 @@
+{:config-paths ["../src/clj-kondo.exports/provisdom/test"]}
