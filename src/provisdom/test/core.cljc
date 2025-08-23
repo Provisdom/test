@@ -354,8 +354,7 @@
                           (and (instance? ExceptionInfo ex)
                             (::s/failure (ex-data ex))))
             spec-error-map (fn [ex]
-                             (let [spec-error-message #?(:clj (.getMessage ex)
-                                                         :cljs (.-message ex))
+                             (let [spec-error-message (ex-message ex)
                                    explain-data (ex-data ex)]
                                {:type     :fail
                                 :expected "n/a"
