@@ -229,23 +229,23 @@
   ([x1 x2 & {:keys [tolerance nan-equal?]}]
    (cond
      ;; Both are infinite - check if same infinity
-     (and (Double/isInfinite x1) (Double/isInfinite x2))
+     (and (infinite? x1) (infinite? x2))
      (= x1 x2)
 
      ;; One is infinite, other is not - never equal
-     (or (Double/isInfinite x1) (Double/isInfinite x2))
+     (or (infinite? x1) (infinite? x2))
      false
 
      ;; Both are NaN - consider equal (optional behavior)
-     (and nan-equal? (Double/isNaN x1) (Double/isNaN x2))
+     (and nan-equal? (NaN? x1) (NaN? x2))
      true
 
      ;; One is NaN, other is not - never equal
-     (or (Double/isNaN x1) (Double/isNaN x2))
+     (or (NaN? x1) (NaN? x2))
      false
 
      :else
-     (< (Math/abs (double (- x1 x2))) tolerance))))
+     (< (abs (double (- x1 x2))) tolerance))))
 
 (s/fdef approx=
   :args (s/cat :x1 number? :x2 number? :opts (s/? (s/keys* :req-un [::tolerance])))
