@@ -188,6 +188,11 @@
                      @invalid-store#))
                  (throw ex#)))))))))
 
+(defmacro is
+  "Re-export clojure.test/is for convenience when using [provisdom.test.core :as t]"
+  [form & args]
+  `(t/is ~form ~@args))
+
 (defmacro is=
   ([expected actual] `(is= ~expected ~actual nil))
   ([expected actual msg]
