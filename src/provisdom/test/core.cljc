@@ -275,7 +275,7 @@
   (let [form (macroexpand `(no-problems ~spec ~x))]
     `(~'is ~form)))
 
-(defn data-approx=
+(defn ^:private data-approx=
   ([expected actual] (data-approx= expected actual :tolerance 1e-6))
   ([expected actual & {:as approx=-opts}]
    (let [expected-paths-map (data-to-paths expected)
@@ -288,6 +288,16 @@
                      (approx= expected-val actual-val approx=-opts)
                      (= expected-val (get actual-paths-map path)))))
          expected-paths-map)))))
+
+(defmacro is-data-approx=
+  "Asserts that nested data structures x1 and x2 are approximately equal.
+   Compares numbers with approx= and non-numbers with =.
+   Options:
+     :tolerance - maximum allowed difference for numbers (default 1e-6)
+     :nan-equal? - if true, two NaN values are considered equal"
+  ([x1 x2] `(is-data-approx= ~x1 ~x2 :tolerance 1e-6))
+  ([x1 x2 & opts]
+   `(t/is (#'data-approx= ~x1 ~x2 ~@opts))))
 
 #?(:clj (defmethod t/assert-expr 'just
           [menv msg form]
