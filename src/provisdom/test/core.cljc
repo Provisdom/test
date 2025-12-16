@@ -202,6 +202,15 @@
   ([form] `(is-not ~form nil))
   ([form msg] `(t/is (~'not ~form) ~msg)))
 
+(defmacro is-approx=
+  "Asserts that x1 and x2 are approximately equal within tolerance.
+   Options:
+     :tolerance - maximum allowed difference (default 1e-6)
+     :nan-equal? - if true, two NaN values are considered equal"
+  ([x1 x2] `(is-approx= ~x1 ~x2 :tolerance 1e-6))
+  ([x1 x2 & opts]
+   `(t/is (#'approx= ~x1 ~x2 ~@opts))))
+
 (defn midje-just
   [expected actual]
   (if (= (count expected) (count actual))
@@ -229,7 +238,7 @@
               :else (assoc acc cur-path x)))]
     (data-to-paths' x {} [])))
 
-(defn approx=
+(defn ^:private approx=
   ([x1 x2] (approx= x1 x2 :tolerance 1e-6))
   ([x1 x2 & {:keys [tolerance nan-equal?]}]
    (cond
@@ -251,10 +260,6 @@
 
      :else
      (< (abs (double (- x1 x2))) tolerance))))
-
-(s/fdef approx=
-  :args (s/cat :x1 number? :x2 number? :opts (s/? (s/keys* :req-un [::tolerance])))
-  :ret boolean?)
 
 (defmacro no-problems
   "Returns true if x has no problems when validated against spec, false otherwise.
