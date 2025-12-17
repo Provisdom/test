@@ -486,3 +486,24 @@
   ([name sym-or-syms] `(defspec-test ~name ~sym-or-syms nil))
   ([name sym-or-syms opts]
    `(t/deftest ~name (do-spec-check-report ~sym-or-syms ~opts))))
+
+#?(:clj (defmacro is-spec-check
+          "Runs generative tests for spec conformance and reports results.
+          Equivalent to (is (spec-check ...)) but more direct.
+
+          See `spec-check` for available options."
+          ([sym-or-syms] `(is-spec-check ~sym-or-syms {}))
+          ([sym-or-syms opts]
+           `(do-spec-check-report ~sym-or-syms ~opts))))
+
+#?(:clj (defmacro is-spec-check-with-gen
+          "Runs generative tests with custom generators and reports results.
+          Takes gen-map as first argument for convenience when custom generators
+          are always needed.
+
+          gen-map is a map from spec names to generator functions.
+          See `spec-check` for other available options."
+          ([gen-map sym-or-syms] `(is-spec-check-with-gen ~gen-map ~sym-or-syms {}))
+          ([gen-map sym-or-syms opts]
+           (let [merged-opts (merge {:gen gen-map} opts)]
+             `(do-spec-check-report ~sym-or-syms ~merged-opts)))))

@@ -171,17 +171,17 @@
   (t/is-valid int? 1))
 
 (deftest data-approx=-test
-  (is (t/data-approx=
-        {:a 1.0
-         :b #{1.0}}
-        {:a 1.0000001
-         :b #{1.0}}))
-  (is (t/data-approx=
-        {:a 1.0}
-        {:a 1.001}
-        {:tolerance 1e-2}))
-  (is (t/data-approx= [[1.0000001]] [[1.0]]))
-  (is (not (t/data-approx= {:a 1} {:b 1})))
-  (is (not (t/data-approx=
-             {:a 1.0}
-             {:a 1.01}))))
+  (t/is-data-approx=
+    {:a 1.0
+     :b #{1.0}}
+    {:a 1.0000001
+     :b #{1.0}})
+  (t/is-data-approx=
+    {:a 1.0}
+    {:a 1.001}
+    :tolerance 1e-2)
+  (t/is-data-approx= [[1.0000001]] [[1.0]])
+  (t/is-not (#'t/data-approx= {:a 1} {:b 1}))
+  (t/is-not (#'t/data-approx=
+              {:a 1.0}
+              {:a 1.01})))
