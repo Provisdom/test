@@ -431,8 +431,8 @@
             `(p.st/check ~syms ~check-opts))))
 
 #?(:clj
-   (defmacro spec-check
-     "Run generative tests for spec conformance on vars named by sym-or-syms, a
+   (defmacro spec-check-
+     "Internal. Run generative tests for spec conformance on vars named by sym-or-syms, a
      symbol or collection of symbols. If sym-or-syms is not specified, check all
      checkable vars.
 
@@ -458,7 +458,7 @@
          the very first test.
        :reporter-fn - A callback function that will be called at various points in
          the test."
-     ([sym-or-syms] `(spec-check ~sym-or-syms {}))
+     ([sym-or-syms] `(spec-check- ~sym-or-syms {}))
      ([sym-or-syms opts]
       (let [syms (if (sequential? sym-or-syms) sym-or-syms [sym-or-syms])
             syms (->> syms
@@ -473,7 +473,7 @@
 ;; must be done at compile time for correct line number resolution
 #?(:clj (defmacro do-spec-check-report
           [sym-or-syms opts]
-          `(let [check-results# (spec-check ~sym-or-syms ~opts)
+          `(let [check-results# (spec-check- ~sym-or-syms ~opts)
                  report-map# (spec-check-report check-results#)]
              (t/do-report report-map#))))
 
