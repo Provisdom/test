@@ -264,7 +264,7 @@
 (defmacro no-problems
   "Returns true if x has no problems when validated against spec, false otherwise.
   Most useful to be called inside an clojure.test/is form:
-    (is (no-problems int? 1))
+    (t/is (no-problems int? 1))
 
   [[is-valid]] is provided as a shortcut to this."
   [spec x]
@@ -489,7 +489,7 @@
 
 #?(:clj (defmacro is-spec-check
           "Runs generative tests for spec conformance and reports results.
-          Equivalent to (is (spec-check ...)) but more direct.
+          Equivalent to (t/is (spec-check ...)) but more direct.
 
           See `spec-check` for available options."
           ([sym-or-syms] `(is-spec-check ~sym-or-syms {}))
