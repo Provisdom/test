@@ -1,5 +1,5 @@
 {:deps    {provisdom/utility-belt {:git/url "https://github.com/Provisdom/utility-belt.git"
-                                   :sha     "c4bcc1478fa8d866baff56ec1bf5c4bb353c5353"}}
+                                   :sha     "e243ee983c531d4d10b11b4ff6746572f0f39852"}}
  :paths   ["src"]
  :aliases {:local           {:override-deps {provisdom/utility-belt       {:local/root "../utility-belt"}}}
            :orchestra       {:extra-deps {orchestra/orchestra {:mvn/version "2021.01.01-1"}}}
@@ -8,4 +8,4 @@
            :test-clj-runner {:main-opts  ["-m" "kaocha.runner"]
                              :extra-deps {lambdaisland/kaocha           {:mvn/version "1.91.1392"}
                                           lambdaisland/kaocha-junit-xml {:mvn/version "1.17.101"}}}
-           :test-cljs       {:extra-deps {thheller/shadow-cljs {:mvn/version "3.3.3"}}}}}
+           :test-cljs       {:extra-deps {thheller/shadow-cljs {:mvn/version "3.3.4"}}}}}
