@@ -90,7 +90,7 @@
   "Enables instrumentation for `sym-or-syms` while executing `body`. Once `body`
   has completed, unstrument will be called."
   [sym-or-syms & body]
-  (let [sym-or-syms (if (= :all sym-or-syms) `(st/instrumentable-syms) sym-or-syms)]
+  (let [sym-or-syms (if (= :all sym-or-syms) `:all sym-or-syms)]
     `(with-instrument* ~[sym-or-syms] ~@body)))
 
 #?(:clj (defn instrumentation
@@ -101,7 +101,7 @@
           [{:keys [instrument]}]
           (let [syms (cond
                        (coll? instrument) instrument
-                       (= instrument :all) (st/instrumentable-syms)
+                       (= instrument :all) :all
                        :else (throw (ex-info "Instrument must be passed a collection of symbols or :all"
                                       {:instrument instrument})))
                 unstrument-syms (set (filter (complement function-instrumented?) syms))
