@@ -202,6 +202,11 @@
   ([form] `(is-not ~form nil))
   ([form msg] `(t/is (~'not ~form) ~msg)))
 
+(defmacro is-not=
+  ([expected actual] `(is-not= ~expected ~actual nil))
+  ([expected actual msg]
+   `(t/is (~'not= ~expected ~actual) ~msg)))
+
 (defmacro is-approx=
   "Asserts that x1 and x2 are approximately equal within tolerance.
    Options:
