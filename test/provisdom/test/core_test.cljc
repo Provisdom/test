@@ -1,27 +1,34 @@
 (ns provisdom.test.core-test
   #?(:cljs (:require-macros [provisdom.test.core]))
   (:require
-    [clojure.test :as ct]
     [clojure.spec.alpha :as s]
     [clojure.spec.test.alpha :as st]
     [provisdom.test.core :as t])
-  #?(:clj (:import (clojure.lang ExceptionInfo))))
+  #?(:clj (:import (clojure.lang ExceptionInfo)
+                   (java.io Closeable))))
 
-(ct/deftest bind-spec-opts-unit-test
+;;2 seconds
+
+#?(:clj (set! *warn-on-reflection* true))
+
+(t/deftest bind-spec-opts-unit-test
   (t/bind-spec-opts {:fspec-iterations 10}
-    (ct/is (= 10 s/*fspec-iterations*))))
+    (t/is (= 10 s/*fspec-iterations*))))
 
-#?(:clj (ct/deftest test-macro-expansions
-          (ct/are [expected-form quoted-form] (= expected-form (macroexpand-1 quoted-form))
-            `(ct/is (~'= 1 1) nil) `(t/is= 1 1 nil)
-            `(ct/is (~'not false) "some message") `(t/is-not false "some message"))))
+#?(:clj (t/deftest test-macro-expansions
+          ;; is= expands correctly
+          (t/is (= `(clojure.test/is (~'= 1 1) nil) (macroexpand-1 `(t/is= 1 1 nil))))
+          ;; is-not expands correctly
+          (t/is (= `(clojure.test/is (~'not false) "some message")
+                   (macroexpand-1 `(t/is-not false "some message"))))))
 
-(ct/deftest t-midje-just
-  (ct/are [e a] (t/midje-just e a)
-    [1 1 1] [1 1 1]
-    [1 1 #(and (number? %) (not (== % %)))] [1 1 #?(:clj Double/NaN :cljs js/NaN)])
-  (ct/are [e a] (not (t/midje-just e a))
-    [1 1 1] [1 1 2]))
+(t/deftest t-midje-just
+  ;; matching cases
+  (t/is (t/midje-just [1 1 1] [1 1 1]))
+  (t/is (t/midje-just [1 1 #(and (number? %) (not (== % %)))]
+                      [1 1 #?(:clj Double/NaN :cljs js/NaN)]))
+  ;; non-matching case
+  (t/is-not (t/midje-just [1 1 1] [1 1 2])))
 
 (defn my-add
   [x y]
@@ -68,109 +75,126 @@
             (= x (/ (inc y) 10))))
   :ret string?)
 
-(ct/deftest function-instrumented?-test
+(t/deftest function-instrumented?-test
   (st/unstrument `my-add)
   (st/instrument `my-add)
-  (ct/is (= true (t/function-instrumented? `my-add)))
+  (t/is= true (t/function-instrumented? `my-add))
   (st/unstrument `my-add)
-  (ct/is (= #?(:clj false :cljs true) (t/function-instrumented? `my-add))))
+  (t/is= #?(:clj false :cljs true) (t/function-instrumented? `my-add)))
 
 #?(:clj
-   (ct/deftest with-instrument-test
-     (ct/testing "started instrumented"
-       (st/instrument `my-add)
-       (t/with-instrument `my-add
-         (my-add 1 2))
-       (ct/is (thrown-with-msg? ExceptionInfo #"Call to" (my-add 1 "a")))
-       (ct/is (= [`my-add] (st/unstrument `my-add)))
-       (t/with-instrument :all
-         (ct/is (= "3" (my-add 1 2)))))
-     (ct/testing "started uninstrumented"
-       (t/with-instrument `my-add
-         (ct/is (thrown-with-msg? ExceptionInfo #"Call to" (my-add 1 "a"))))
-       (ct/is (thrown? ClassCastException (my-add 1 "a"))))))
+   (t/deftest with-instrument-test
+     ;; started instrumented
+     (st/instrument `my-add)
+     (t/with-instrument `my-add
+       (my-add 1 2))
+     (t/is (thrown-with-msg? ExceptionInfo #"Call to" (my-add 1 "a")))
+     (t/is= [`my-add] (st/unstrument `my-add))
+     (t/with-instrument :all
+       (t/is= "3" (my-add 1 2)))
+     ;; started uninstrumented
+     (t/with-instrument `my-add
+       (t/is (thrown-with-msg? ExceptionInfo #"Call to" (my-add 1 "a"))))
+     (t/is (thrown? ClassCastException (my-add 1 "a")))))
 
-#?(:clj (ct/deftest instrumentation-test
-          (with-open [_ (t/instrumentation {:instrument [`my-add]})]
-            (ct/is (thrown? ExceptionInfo (my-add 1 "a"))))
-          (ct/is (thrown? ClassCastException (my-add 1 "a")))))
+#?(:clj (t/deftest instrumentation-test
+          (with-open [^Closeable _ (t/instrumentation {:instrument [`my-add]})]
+            (t/is (thrown? ExceptionInfo (my-add 1 "a"))))
+          (t/is (thrown? ClassCastException (my-add 1 "a")))))
 
 (t/defspec-test test-my-add `my-add)
 
-(ct/deftest test-spec-check-assert
-  (ct/is (spec-check [my-add] {:test-check {:num-tests 10}}))
+(t/deftest test-spec-check-assert
+  (t/is-spec-check [my-add] {:num-tests 10})
   (t/with-spec-check-opts
-    {:test-check {:num-tests 10}}
-    (ct/is (spec-check my-add)))
-  (ct/is (spec-check my-add {:coll-check-limit 10
-                          :coll-error-limit 10
-                          :fspec-iterations 10
-                          :recursion-limit  1
-                          :test-check       {:num-tests 10}})))
+    {:num-tests 10}
+    (t/is-spec-check my-add))
+  (t/is-spec-check my-add {:coll-check-limit 10
+                           :coll-error-limit 10
+                           :fspec-iterations 10
+                           :num-tests        10
+                           :recursion-limit  1}))
 
-(ct/deftest data-to-paths-test
+(t/deftest data-to-paths-test
   (let [f #'t/data-to-paths]
-    (ct/is (= {[:a 0]  1.0
+    ;; map expansion
+    (t/is= {[:a 0]  1.0
             [:b :c] 1.0
             [:set]  #{1 2 3}}
-          (f {:a   [1.0]
-              :b   {:c 1.0}
-              :set #{1 2 3}}))
-      "map expansion")
-    (ct/is (= {[0] 1.0
+           (f {:a   [1.0]
+               :b   {:c 1.0}
+               :set #{1 2 3}}))
+    ;; coll expansion
+    (t/is= {[0] 1.0
             [1] 2.0}
-          (f [1.0 2.0]))
-      "coll expansion")
-    (ct/is (= {[] 1.0}
-          (f 1.0))
-      "not coll or map expansion")))
+           (f [1.0 2.0]))
+    ;; not coll or map expansion
+    (t/is= {[] 1.0}
+           (f 1.0))))
 
-(ct/deftest approx=-test
+(t/deftest approx=-test
   ;; Testing private approx= function via #'
   (let [approx= @#'t/approx=]
-    (ct/testing "Default tolerance (1e-6)"
-      (ct/is (approx= 1.0 1.0))
-      (ct/is (approx= 1.0 1.000001))
-      (ct/is (not (approx= 1.0 1.00001)))
-      (ct/is (approx= 0.0 0.0))
-      (ct/is (approx= -1.0 -1.0))
-      (ct/is (approx= 1000000.0 1000000.0000009)))
-
-    (ct/testing "Custom tolerance"
-      (ct/is (approx= 1.0 1.001 :tolerance 1e-2))
-      (ct/is (not (approx= 1.0 1.01 :tolerance 1e-2)))
-      (ct/is (approx= 1.0 1.01 :tolerance 1e-1)))
-
+    ;; Default tolerance (1e-6)
+    (t/is (approx= 1.0 1.0))
+    (t/is (approx= 1.0 1.000001))
+    (t/is (not (approx= 1.0 1.00001)))
+    (t/is (approx= 0.0 0.0))
+    (t/is (approx= -1.0 -1.0))
+    (t/is (approx= 1000000.0 1000000.0000009))
+    ;; Custom tolerance
+    (t/is (approx= 1.0 1.001 :tolerance 1e-2))
+    (t/is (not (approx= 1.0 1.01 :tolerance 1e-2)))
+    (t/is (approx= 1.0 1.01 :tolerance 1e-1))
+    ;; Relative tolerance: |x1 - x2| / max(|x1|, |x2|) < rel-tolerance
+    (t/is (approx= 1e10 1.0000001e10 :rel-tolerance 1e-6))
+    (t/is (not (approx= 1e10 1.001e10 :rel-tolerance 1e-6)))
+    ;; works at different scales
+    (t/is (approx= 1000.0 1000.0005 :rel-tolerance 1e-6))
+    (t/is (approx= 0.001 0.0010000005 :rel-tolerance 1e-6))
+    ;; zero case - both zero
+    (t/is (approx= 0.0 0.0 :rel-tolerance 1e-6))
+    ;; zero case - one zero, one non-zero should fail
+    (t/is (not (approx= 0.0 0.001 :rel-tolerance 1e-6)))
     #?(:clj
-       (ct/testing "Infinity cases"
-         (ct/is (approx= Double/POSITIVE_INFINITY Double/POSITIVE_INFINITY))
-         (ct/is (approx= Double/NEGATIVE_INFINITY Double/NEGATIVE_INFINITY))
-         (ct/is (not (approx= Double/POSITIVE_INFINITY Double/NEGATIVE_INFINITY)))
-         (ct/is (not (approx= Double/POSITIVE_INFINITY 1000.0)))
-         (ct/is (not (approx= 1000.0 Double/POSITIVE_INFINITY)))
-         (ct/is (not (approx= Double/NEGATIVE_INFINITY 1000.0)))
-         (ct/is (not (approx= 1000.0 Double/NEGATIVE_INFINITY)))
-         (ct/is (not (approx= Double/POSITIVE_INFINITY Double/NEGATIVE_INFINITY :tolerance 1e10)))))
+       (do
+         ;; Infinity cases
+         (t/is (approx= Double/POSITIVE_INFINITY Double/POSITIVE_INFINITY))
+         (t/is (approx= Double/NEGATIVE_INFINITY Double/NEGATIVE_INFINITY))
+         (t/is (not (approx= Double/POSITIVE_INFINITY Double/NEGATIVE_INFINITY)))
+         (t/is (not (approx= Double/POSITIVE_INFINITY 1000.0)))
+         (t/is (not (approx= 1000.0 Double/POSITIVE_INFINITY)))
+         (t/is (not (approx= Double/NEGATIVE_INFINITY 1000.0)))
+         (t/is (not (approx= 1000.0 Double/NEGATIVE_INFINITY)))
+         (t/is (not (approx= Double/POSITIVE_INFINITY Double/NEGATIVE_INFINITY :tolerance 1e10)))
+         ;; NaN cases without nan-equal? flag
+         (t/is (not (approx= Double/NaN Double/NaN)))
+         (t/is (not (approx= Double/NaN 1.0)))
+         (t/is (not (approx= 1.0 Double/NaN)))
+         (t/is (not (approx= Double/NaN Double/POSITIVE_INFINITY)))
+         (t/is (not (approx= Double/POSITIVE_INFINITY Double/NaN)))
+         ;; NaN cases with nan-equal? true
+         (t/is (approx= Double/NaN Double/NaN :nan-equal? true))
+         (t/is (not (approx= Double/NaN 1.0 :nan-equal? true)))
+         (t/is (not (approx= 1.0 Double/NaN :nan-equal? true)))
+         (t/is (not (approx= Double/NaN Double/POSITIVE_INFINITY :nan-equal? true)))))))
 
-    #?(:clj
-       (ct/testing "NaN cases without nan-equal? flag"
-         (ct/is (not (approx= Double/NaN Double/NaN)))
-         (ct/is (not (approx= Double/NaN 1.0)))
-         (ct/is (not (approx= 1.0 Double/NaN)))
-         (ct/is (not (approx= Double/NaN Double/POSITIVE_INFINITY)))
-         (ct/is (not (approx= Double/POSITIVE_INFINITY Double/NaN)))))
-
-    #?(:clj
-       (ct/testing "NaN cases with nan-equal? true"
-         (ct/is (approx= Double/NaN Double/NaN :nan-equal? true))
-         (ct/is (not (approx= Double/NaN 1.0 :nan-equal? true)))
-         (ct/is (not (approx= 1.0 Double/NaN :nan-equal? true)))
-         (ct/is (not (approx= Double/NaN Double/POSITIVE_INFINITY :nan-equal? true)))))))
-
-(ct/deftest is-valid-test
+(t/deftest is-valid-test
   (t/is-valid int? 1))
 
-(ct/deftest data-approx=-test
+#?(:clj
+   (t/deftest is-thrown-with-data-test
+     ;; matches when all expected keys present with correct values
+     (t/is (t/is-thrown-with-data {:type :test-error}
+             (throw (ex-info "test" {:type :test-error :extra :data}))))
+     ;; matches with multiple keys
+     (t/is (t/is-thrown-with-data {:type :test-error :code 42}
+             (throw (ex-info "test" {:type :test-error :code 42 :extra :data}))))
+     ;; empty expected-data matches any ex-info
+     (t/is (t/is-thrown-with-data {}
+             (throw (ex-info "test" {:anything :here}))))))
+
+(t/deftest data-approx=-test
   (t/is-data-approx=
     {:a 1.0
      :b #{1.0}}
@@ -180,8 +204,11 @@
     {:a 1.0}
     {:a 1.001}
     :tolerance 1e-2)
+  ;; rel-tolerance test
+  (t/is-data-approx=
+    {:x 1e10}
+    {:x 1.0000001e10}
+    :rel-tolerance 1e-6)
   (t/is-data-approx= [[1.0000001]] [[1.0]])
   (t/is-not (#'t/data-approx= {:a 1} {:b 1}))
-  (t/is-not (#'t/data-approx=
-              {:a 1.0}
-              {:a 1.01})))
+  (t/is-not (#'t/data-approx= {:a 1.0} {:a 1.01})))

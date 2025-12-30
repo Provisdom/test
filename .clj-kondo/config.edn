@@ -1,1 +1,4 @@
-{:config-paths ["../src/clj-kondo.exports/provisdom/test"]}
+{:config-paths ["../src/clj-kondo.exports/provisdom/test"]
+ :linters {:unresolved-symbol {:exclude [thrown? thrown-with-msg?]}
+           :unresolved-var {:exclude [clojure.spec.alpha/*fspec-iterations*
+                                      provisdom.test.core-test/test-my-add]}}}

@@ -3,6 +3,8 @@
              [provisdom.test.core]
              [provisdom.test.assertions.cljs]))
   (:require
+    [clojure.pprint :as pprint]
+    [clojure.set :as set]
     [clojure.test :as t]
     [clojure.string :as str]
     [clojure.spec.alpha :as s]
@@ -19,6 +21,7 @@
                    (java.io FileNotFoundException Closeable))))
 
 (s/def ::tolerance (s/double-in :min 0 :max 1000 :NaN? false :infinite? false))
+(s/def ::rel-tolerance (s/double-in :min 0 :max 1 :NaN? false :infinite? false))
 (s/def ::nan-equal? boolean?)
 
 (defmacro bind-spec-opts
@@ -50,6 +53,12 @@
        :cljs (constantly []))))
 
 (defn function-instrumented?
+  "Returns true if the function named by sym is currently instrumented.
+
+   CLJS Note: Always returns true on ClojureScript because the internal
+   instrumented-vars atom is private and inaccessible. This means
+   with-instrument won't unstrument functions on CLJS - they remain
+   instrumented. This is usually acceptable for test code."
   [sym]
   #?(:clj  (let [instrumented-vars @(var-get #'st/instrumented-vars)]
              (contains? instrumented-vars (resolve sym)))
@@ -102,33 +111,15 @@
           (let [syms (cond
                        (coll? instrument) instrument
                        (= instrument :all) (st/instrumentable-syms)
-                       :else (throw (ex-info "Instrument must be passed a collection of symbols or :all"
-                                      {:instrument instrument})))
+                       :else (throw
+                               (ex-info "Instrument must be passed a collection of symbols or :all"
+                                 {:instrument instrument})))
                 unstrument-syms (set (filter (complement function-instrumented?) syms))
                 instrument! @instrument-delay]
             (instrument! syms)
             (reify Closeable
               (close [_]
                 (st/unstrument unstrument-syms))))))
-
-(defmacro with-instrument2
-  [{:keys [orchestra spec]} & body]
-  (let [before-forms (->> [(when spec
-                             `(st/instrument ~@spec))
-                           (when orchestra
-                             `(orchestra.spec.test/instrument ~@orchestra))]
-                       (filter some?))
-        after-forms (->> [(when spec
-                            `(orchestra.spec.test/unstrument ~@(take 1 spec)))
-                          (when orchestra
-                            `(orchestra.spec.test/unstrument ~@(take 1 orchestra)))]
-                      (filter some?))]
-    `(do
-       ~@before-forms
-       (try
-         ~@body
-         (finally
-           ~@after-forms)))))
 
 (defmacro such-that-override
   [such-that-opts & body]
@@ -148,45 +139,26 @@
    ;;(prn {:spec spec :over overrides :path path :form form})
    (let [spec (#'s/specize og-spec)]
      (if-let [g (or (when-let [gfn (or (get overrides (or (#'s/spec-name spec) spec))
-                                     (get overrides path))]
+                                       (get overrides path))]
                       (gfn))
-                  (s/gen* spec overrides path rmap))]
+                    (s/gen* spec overrides path rmap))]
        (gen/such-that (with-meta (fn [x]
                                    (let [valid? (s/valid? spec x)]
                                      (when-not valid?
                                        (swap! invalid-store assoc og-spec x))
                                      valid?))
-                        {:spec      spec
-                         :overrides overrides
-                         :path      path
-                         :form      form}) g 100)
+                                 {:spec      spec
+                                  :overrides overrides
+                                  :path      path
+                                  :form      form}) g 100)
        (let [abbr (s/abbrev form)]
          (throw (ex-info (str "Unable to construct gen at: " path " for: " abbr)
                   {::path path ::form form ::failure :no-gen})))))))
 
-(defmacro debug-slow-gen
-  [{:keys [gen spec samples max-tries]
-    :or   {samples   500
-           max-tries 3}}]
-  (assert (or gen spec) ":spec or :gen must be passed")
-  `(let [gen# (or ~gen (s/gen ~spec))
-         invalid-store# (atom {})]
-     (provisdom.test.core/such-that-override {:max-tries ~max-tries}
-       (with-redefs [s/gensub (fn [spec# overrides# path# rmap# form#]
-                                (my-gensub spec# overrides# path# rmap# form# invalid-store#))]
-         (do
-           (try
-             (doall (gen/sample gen# ~samples))
-             :success
-
-             (catch ExceptionInfo ex#
-               (if (:max-tries (ex-data ex#))
-                 (when ~spec
-                   (let [failed# (get @invalid-store# ~spec)]
-                     (binding [*out* *err*] (println "Failed such that"))
-                     (def ~(symbol (str *ns*) "s-failed-val") failed#)
-                     @invalid-store#))
-                 (throw ex#)))))))))
+(defmacro deftest
+  "Re-export clojure.test/deftest for convenience when using [provisdom.test.core :as t]"
+  [name & body]
+  `(t/deftest ~name ~@body))
 
 (defmacro is
   "Re-export clojure.test/is for convenience when using [provisdom.test.core :as t]"
@@ -210,11 +182,43 @@
 (defmacro is-approx=
   "Asserts that x1 and x2 are approximately equal within tolerance.
    Options:
-     :tolerance - maximum allowed difference (default 1e-6)
-     :nan-equal? - if true, two NaN values are considered equal"
+     :tolerance     - absolute maximum allowed difference (default 1e-6)
+     :rel-tolerance - relative tolerance as fraction of max(|x1|,|x2|);
+                      if provided, used instead of absolute tolerance
+     :nan-equal?    - if true, two NaN values are considered equal"
   ([x1 x2] `(is-approx= ~x1 ~x2 :tolerance 1e-6))
   ([x1 x2 & opts]
    `(t/is (#'approx= ~x1 ~x2 ~@opts))))
+
+(defmacro is-thrown-with-data
+  "Asserts that body throws an ExceptionInfo whose ex-data contains
+   all key-value pairs in expected-data (subset match).
+
+   Example:
+     (is-thrown-with-data {:type :validation-error}
+       (throw (ex-info \"bad\" {:type :validation-error :field :name})))"
+  [expected-data & body]
+  `(try
+     ~@body
+     (t/do-report {:type     :fail
+                   :message  "Expected exception to be thrown"
+                   :expected '~expected-data
+                   :actual   nil})
+     (catch ExceptionInfo e#
+       (let [actual-data# (ex-data e#)
+             matches?# (every? (fn [[k# v#]]
+                                 (= v# (get actual-data# k#)))
+                         ~expected-data)]
+         (if matches?#
+           (t/do-report {:type     :pass
+                         :message  nil
+                         :expected '~expected-data
+                         :actual   actual-data#})
+           (t/do-report {:type     :fail
+                         :message  "Exception data did not match expected"
+                         :expected '~expected-data
+                         :actual   actual-data#}))
+         matches?#))))
 
 (defn midje-just
   [expected actual]
@@ -244,8 +248,13 @@
     (data-to-paths' x {} [])))
 
 (defn ^:private approx=
+  "Compare two numbers for approximate equality.
+   Options:
+     :tolerance     - absolute tolerance (default 1e-6)
+     :rel-tolerance - relative tolerance (if provided, used instead of absolute)
+     :nan-equal?    - if true, NaN == NaN"
   ([x1 x2] (approx= x1 x2 :tolerance 1e-6))
-  ([x1 x2 & {:keys [tolerance nan-equal?]}]
+  ([x1 x2 & {:keys [tolerance rel-tolerance nan-equal?]}]
    (cond
      ;; Both are infinite - check if same infinity
      (and (infinite? x1) (infinite? x2))
@@ -264,7 +273,16 @@
      false
 
      :else
-     (< (abs (double (- x1 x2))) tolerance))))
+     (let [diff (abs (double (- x1 x2)))]
+       (if rel-tolerance
+         ;; Relative tolerance: |x1 - x2| / max(|x1|, |x2|) < rel-tolerance
+         ;; Handle zero case specially
+         (let [max-abs (max (abs (double x1)) (abs (double x2)))]
+           (if (zero? max-abs)
+             (zero? diff)
+             (< (/ diff max-abs) rel-tolerance)))
+         ;; Absolute tolerance
+         (< diff tolerance))))))
 
 (defmacro no-problems
   "Returns true if x has no problems when validated against spec, false otherwise.
@@ -278,7 +296,7 @@
 (defmacro is-valid
   [spec x]
   (let [form (macroexpand `(no-problems ~spec ~x))]
-    `(~'is ~form)))
+    `(t/is ~form)))
 
 (defn ^:private data-approx=
   ([expected actual] (data-approx= expected actual :tolerance 1e-6))
@@ -286,23 +304,62 @@
    (let [expected-paths-map (data-to-paths expected)
          actual-paths-map (data-to-paths actual)]
      (and (= (set (keys expected-paths-map))
-            (set (keys actual-paths-map)))
-       (every? (fn [[path expected-val]]
-                 (let [actual-val (get actual-paths-map path)]
-                   (if (number? expected-val)
-                     (approx= expected-val actual-val approx=-opts)
-                     (= expected-val (get actual-paths-map path)))))
-         expected-paths-map)))))
+             (set (keys actual-paths-map)))
+          (every? (fn [[path expected-val]]
+                    (let [actual-val (get actual-paths-map path)]
+                      (if (number? expected-val)
+                        (approx= expected-val actual-val approx=-opts)
+                        (= expected-val (get actual-paths-map path)))))
+            expected-paths-map)))))
+
+(defn data-diff
+  "Returns a sequence of maps describing differences between expected and actual.
+   Each map has :path, :expected, :actual, and :equal? keys.
+   Only returns entries where values differ."
+  ([expected actual] (data-diff expected actual :tolerance 1e-6))
+  ([expected actual & {:as approx=-opts}]
+   (let [expected-paths (data-to-paths expected)
+         actual-paths (data-to-paths actual)
+         all-paths (set/union (set (keys expected-paths)) (set (keys actual-paths)))]
+     (->> all-paths
+          (map (fn [path]
+                 (let [e (get expected-paths path ::missing)
+                       a (get actual-paths path ::missing)
+                       equal? (cond
+                                (= e ::missing) false
+                                (= a ::missing) false
+                                (number? e) (apply approx= e a (mapcat identity approx=-opts))
+                                :else (= e a))]
+                   {:path path :expected e :actual a :equal? equal?})))
+          (remove :equal?)))))
 
 (defmacro is-data-approx=
   "Asserts that nested data structures x1 and x2 are approximately equal.
    Compares numbers with approx= and non-numbers with =.
+   On failure, shows which paths differ.
    Options:
-     :tolerance - maximum allowed difference for numbers (default 1e-6)
-     :nan-equal? - if true, two NaN values are considered equal"
+     :tolerance     - absolute max difference for numbers (default 1e-6)
+     :rel-tolerance - relative tolerance; if provided, used instead of absolute
+     :nan-equal?    - if true, two NaN values are considered equal"
   ([x1 x2] `(is-data-approx= ~x1 ~x2 :tolerance 1e-6))
   ([x1 x2 & opts]
-   `(t/is (#'data-approx= ~x1 ~x2 ~@opts))))
+   `(let [expected# ~x1
+          actual# ~x2
+          result# (#'data-approx= expected# actual# ~@opts)]
+      (if result#
+        (t/do-report {:type :pass :message nil :expected expected# :actual actual#})
+        (let [diffs# (data-diff expected# actual# ~@opts)
+              diff-str# (with-out-str
+                          (doseq [{:keys [~'path ~'expected ~'actual]} diffs#]
+                            (println "  Path:" ~'path)
+                            (println "    expected:" ~'expected)
+                            (println "    actual:  " ~'actual)))]
+          (t/do-report {:type     :fail
+                        :message  (str "Data structures differ at " (count diffs#) " path(s):\n"
+                                    diff-str#)
+                        :expected expected#
+                        :actual   actual#})))
+      result#)))
 
 #?(:clj (defmethod t/assert-expr 'just
           [menv msg form]
@@ -334,10 +391,12 @@
   [opts]
   (let [base-opts (merge *default-spec-check-opts* opts)]
     (-> base-opts
-      (assoc :clojure.spec.test.check/opts (select-keys opts quick-check-stc-keys))
-      (update :clojure.spec.test.check/opts
-        ;; exists for backwards compatibility. Eventually this can be removed
-        merge (:test-check base-opts {})))))
+        (assoc :clojure.spec.test.check/opts (select-keys opts quick-check-stc-keys))
+        (update :clojure.spec.test.check/opts
+                ;; exists for backwards compatibility. Eventually this can be removed
+                merge (:test-check base-opts {}))
+        ;; Pass timeout through for spec-check
+        (cond-> (:timeout opts) (assoc :timeout (:timeout opts))))))
 
 #?(:clj
    (defn spec-test-check
@@ -352,45 +411,82 @@
 (defonce failed-args-store (atom {}))
 
 (defn get-failed-args
+  "Returns the failed args for fn-sym from the most recent spec-check failure,
+   or nil if no failure recorded."
   [fn-sym]
   (get @failed-args-store fn-sym))
 
+(defn pprint-failed-args
+  "Pretty-prints the failed args for fn-sym. Returns the args if found, nil otherwise."
+  [fn-sym]
+  (when-let [args (get-failed-args fn-sym)]
+    (pprint/pprint args)
+    args))
+
 (defn spec-check-report
+  "Generate a test report from spec check results.
+   Includes shrinking information when available."
   [check-results]
-  (let [first-failure (-> (filter (fn [result]
-                                    (not= true (get-in result [:clojure.spec.test.check/ret :result])))
-                            check-results)
-                        (first))]
+  (let [first-failure (->> check-results
+                           (remove #(-> % :clojure.spec.test.check/ret :result true?))
+                           first)]
     (if first-failure
       ;; reasons for a check to fail:
       ;; - generator threw an exception: test.check results
       ;; - return value does not pass :ret spec: test.check results
       ;; - function threw exception while running: test.check results
       ;; - cannot satisfy such-that in args: thrown as an exception
+      ;; - timeout
       (let [fn-sym (:sym first-failure)
             test-check-ret (:clojure.spec.test.check/ret first-failure)
             ;; the seed can be used to reproduce the test results
             seed (:seed test-check-ret)
-            ;; args used during the failed function call
-            failing-args (first (:fail test-check-ret))
+            ;; shrinking info
+            shrunk (:shrunk test-check-ret)
+            shrink-depth (get-in shrunk [:depth] 0)
+            shrink-total (:total shrunk)
+            pass-count (:pass? test-check-ret (:num-tests test-check-ret))
+            ;; args used during the failed function call (prefer shrunk if available)
+            original-args (first (:fail test-check-ret))
+            shrunk-args (first (:smallest shrunk))
+            failing-args (or shrunk-args original-args)
             spec-error (-> (:result-data test-check-ret)
-                         :clojure.test.check.properties/error)
+                           :clojure.test.check.properties/error)
+            timeout? (and (instance? ExceptionInfo (:result test-check-ret))
+                          (contains? (ex-data (:result test-check-ret))
+                                     :provisdom.test.spec-check/timeout))
             spec-error? (fn [ex]
                           (and (instance? ExceptionInfo ex)
-                            (::s/failure (ex-data ex))))
+                               (::s/failure (ex-data ex))))
+            shrink-info (when (pos? shrink-depth)
+                          (str "Shrunk " shrink-depth " times"
+                            (when shrink-total (str " (" shrink-total " attempts)"))
+                            " to find minimal case.\n"))
+            pass-info (when pass-count
+                        (str "Failed after " pass-count " passing tests.\n"))
             spec-error-map (fn [ex]
                              (let [spec-error-message (ex-message ex)
                                    explain-data (ex-data ex)]
                                {:type     :fail
                                 :expected "n/a"
                                 :actual   "n/a"
-                                :message  (str spec-error-message " (seed: " seed ")" "\n\n"
+                                :message  (str spec-error-message " (seed: " seed ")\n"
+                                            pass-info
+                                            shrink-info
+                                            "\n"
                                             (with-out-str (s/explain-out explain-data)) "\n"
-                                            "Args:" "\n\n"
-                                            (pr-str failing-args) "\n\n"
+                                            "Args:\n\n"
+                                            (with-out-str (pprint/pprint failing-args))
                                             "---------------")}))]
         (swap! failed-args-store assoc fn-sym failing-args)
         (cond
+          ;; Timeout
+          timeout?
+          {:type     :fail
+           :expected ""
+           :actual   (:result test-check-ret)
+           :message  (str "Spec check timed out.\n" pass-info)}
+
           (spec-error? spec-error)
           (spec-error-map spec-error)
 
@@ -403,12 +499,12 @@
           {:type     :fail
            :expected ""
            :actual   (:failure first-failure)
-           :message  "A generator threw an exception.\n"}
+           :message  (str "A generator threw an exception.\n" pass-info)}
 
           :else {:type     :fail
                  :expected ""
                  :actual   spec-error
-                 :message  (str fn-sym " threw an exception.\n")}))
+                 :message  (str fn-sym " threw an exception.\n" pass-info)}))
       ;; all checks passed
       (do
         (swap! failed-args-store (fn [failed]
@@ -467,9 +563,9 @@
      ([sym-or-syms opts]
       (let [syms (if (sequential? sym-or-syms) sym-or-syms [sym-or-syms])
             syms (->> syms
-                   (map #(fully-qualified-namespace &env %))
-                   (filter some?)
-                   (vec))
+                      (map #(fully-qualified-namespace &env %))
+                      (filter some?)
+                      (vec))
             check-opts (normalize-spec-test-opts opts)]
         (if (not-empty syms)
           `(bind-spec-opts ~opts (-check-1 '~syms ~check-opts))
@@ -496,19 +592,26 @@
           "Runs generative tests for spec conformance and reports results.
           Equivalent to (t/is (spec-check ...)) but more direct.
 
-          See `spec-check` for available options."
+          Options:
+            :num-tests      - number of tests to run (default 1000)
+            :seed           - seed for reproducible tests
+            :max-size       - control size of generated values
+            :gen            - map from spec names to generator overrides
+            :timeout        - timeout in milliseconds
+            :debug          - when true, provides detailed generator diagnostics
+            :coll-check-limit   - elements to validate in collection specs
+            :fspec-iterations   - times to test fns in fspec
+            :recursion-limit    - soft limit on recursive generation
+
+          When :debug is true:
+            - Reduces such-that max-tries for faster failure
+            - Stores problematic values for inspection
+            - Provides more detailed error context"
           ([sym-or-syms] `(is-spec-check ~sym-or-syms {}))
           ([sym-or-syms opts]
-           `(do-spec-check-report ~sym-or-syms ~opts))))
+           (let [debug? (:debug opts)]
+             (if debug?
+               `(such-that-override {:max-tries 10}
+                                    (do-spec-check-report ~sym-or-syms ~(dissoc opts :debug)))
+               `(do-spec-check-report ~sym-or-syms ~opts))))))
 
-#?(:clj (defmacro is-spec-check-with-gen
-          "Runs generative tests with custom generators and reports results.
-          Takes gen-map as first argument for convenience when custom generators
-          are always needed.
-
-          gen-map is a map from spec names to generator functions.
-          See `spec-check` for other available options."
-          ([gen-map sym-or-syms] `(is-spec-check-with-gen ~gen-map ~sym-or-syms {}))
-          ([gen-map sym-or-syms opts]
-           (let [merged-opts (merge {:gen gen-map} opts)]
-             `(do-spec-check-report ~sym-or-syms ~merged-opts)))))

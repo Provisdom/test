@@ -1,14 +1,19 @@
 (ns provisdom.test.spec-check
   "Wrapper on `clojure.spec.test.alpha` with changes to support the `:throws`
-  keyword in `fdef` specs.
+  keyword in `fdef` specs and many other things.
 
-  Original code copied from Spec.
+  Some original code copied from Spec.
   https://github.com/clojure/spec.alpha/blob/eaae63904808a0988f6723d1e9e1ee7db6f07ee5/src/main/clojure/clojure/spec/test/alpha.clj"
   (:require
     [clojure.spec.alpha :as s]
     [clojure.spec.gen.alpha :as gen]
-    [provisdom.utility-belt.spec-ext :as spec-ext]
     [clojure.spec.test.alpha :as st]))
+
+(defn- get-spec-meta
+  "Gets spec metadata from utility-belt.spec-ext if available."
+  [spec-key]
+  (when-let [get-meta-fn (requiring-resolve 'provisdom.utility-belt.spec-ext/get-meta)]
+    (get-meta-fn spec-key)))
 
 (alias 'stc 'clojure.spec.test.check)
 
@@ -50,23 +55,33 @@ with explain-data + ::s/failure."
             throwable (when (and (map? ret) (contains? ret ::throwable)) (::throwable ret))
             _ (when (and throwable (not (check-throwable-ret throws throwable)))
                 (throw throwable))
-            cret (when (and (not throwable) (:ret specs)) (s/conform (:ret specs) ret))]
-        (if (= cret ::s/invalid)
+            c-ret (when (and (not throwable) (:ret specs)) (s/conform (:ret specs) ret))]
+        (if (= c-ret ::s/invalid)
           (explain-check args (:ret specs) ret :ret)
           (if (and (:args specs) (:ret specs) (:fn specs))
-            (if (or throwable (s/valid? (:fn specs) {:args cargs :ret cret}))
+            (if (or throwable (s/valid? (:fn specs) {:args cargs :ret c-ret}))
               true
-              (explain-check args (:fn specs) {:args cargs :ret cret} :fn))
+              (explain-check args (:fn specs) {:args cargs :ret c-ret} :fn))
             true))))))
 
 (defn- quick-check
-  [f specs throws {gen :gen opts ::stc/opts}]
+  [f specs throws {gen :gen opts ::stc/opts timeout :timeout}]
   (let [{:keys [num-tests] :or {num-tests 1000}} opts
         g (try (s/gen (:args specs) gen) (catch Throwable t t))]
     (if (instance? Throwable g)
       {:result g}
-      (let [prop (gen/for-all* [g] #(check-call f specs throws %))]
-        (apply gen/quick-check num-tests prop (mapcat identity opts))))))
+      (let [prop (gen/for-all* [g] #(check-call f specs throws %))
+            run-check #(apply gen/quick-check num-tests prop (mapcat identity opts))]
+        (if timeout
+          (let [fut (future (run-check))
+                result (deref fut timeout ::timeout)]
+            (if (= result ::timeout)
+              (do
+                (future-cancel fut)
+                {:result (ex-info (str "Spec check timed out after " timeout "ms")
+                           {::timeout timeout})})
+              result))
+          (run-check))))))
 
 (defn- make-check-result
   "Builds spec result map."
@@ -84,7 +99,8 @@ with explain-data + ::s/failure."
   [{:keys [s f v spec throws]} opts]
   (let [re-inst? (and v (seq (st/unstrument s)) true)
         f (or f (when v @v))
-        specd (s/spec spec)]
+        specd (s/spec spec)
+        timeout (:timeout opts)]
     (try
       (cond
         (or (nil? f) (some-> v meta :macro))
@@ -92,8 +108,8 @@ with explain-data + ::s/failure."
          :sym     s :spec spec}
 
         (:args specd)
-        (let [tcret (quick-check f specd throws opts)]
-          (make-check-result s spec tcret))
+        (let [tc-ret (quick-check f specd throws (assoc opts :timeout timeout))]
+          (make-check-result s spec tc-ret))
 
         :default
         {:failure (ex-info "No :args spec" {::s/failure :no-args-spec})
@@ -118,7 +134,10 @@ with explain-data + ::s/failure."
     {:s      s
      :v      v
      :spec   (when v (s/get-spec v))
-     :throws (-> s (spec-ext/get-meta) :throws normalize-fdef-throws)}))
+     :throws (-> (keyword (namespace s) (name s))
+                 get-spec-meta
+                 :throws
+                 normalize-fdef-throws)}))
 
 (defn- validate-check-opts
   [opts]
@@ -170,5 +189,4 @@ spec itself will have an ::s/failure value in ex-data:
   ([sym-or-syms opts]
    (->> (collectionize sym-or-syms)
      (filter (st/checkable-syms opts))
-     (pmap
-       #(check-1 (sym->check-map %) opts)))))
+     (pmap #(check-1 (sym->check-map %) opts)))))
