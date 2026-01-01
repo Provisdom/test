@@ -148,6 +148,6 @@ When a spec check fails, retrieve the failing arguments:
 
 ## License
 
-Copyright 2018 Provisdom
+Copyright © 2018-2026 Provisdom Corp.
 
 Distributed under the GNU Lesser General Public License version 3.0.
