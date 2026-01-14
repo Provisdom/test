@@ -1,6 +1,6 @@
 (ns provisdom.test.spec-check
-  "Wrapper on `clojure.spec.test.alpha` with changes to support the `:throws`
-  keyword in `fdef` specs and many other things.
+  "Wrapper on `clojure.spec.test.alpha` with changes to support the `:throws` keyword in `fdef`
+  specs and many other things.
 
   Some original code copied from Spec.
   https://github.com/clojure/spec.alpha/blob/eaae63904808a0988f6723d1e9e1ee7db6f07ee5/src/main/clojure/clojure/spec/test/alpha.clj"
@@ -42,8 +42,8 @@
     throws))
 
 (defn- check-call
-  "Returns true if call passes specs, otherwise *returns* an exception
-with explain-data + ::s/failure."
+  "Returns `true` if call passes specs, otherwise *returns* an exception with explain-data +
+  `::s/failure`."
   [f specs throws args]
   (let [cargs (when (:args specs) (s/conform (:args specs) args))]
     (if (= cargs ::s/invalid)
@@ -144,46 +144,41 @@ with explain-data + ::s/failure."
   (assert (every? ident? (keys (:gen opts))) "check :gen expects ident keys"))
 
 (defn check-fn
-  "Runs generative tests for fn f using spec and opts. See
-'check' for options and return."
+  "Runs generative tests for fn `f` using `spec` and `opts`. See [[check]] for options and return."
   ([f spec] (check-fn f spec nil))
   ([f spec opts]
    (validate-check-opts opts)
    (check-1 {:f f :spec spec} opts)))
 
 (defn check
-  "Run generative tests for spec conformance on vars named by
-sym-or-syms, a symbol or collection of symbols. If sym-or-syms
-is not specified, check all checkable vars.
+  "Run generative tests for spec conformance on vars named by `sym-or-syms`, a symbol or collection
+  of symbols. If `sym-or-syms` is not specified, check all checkable vars.
 
-The opts map includes the following optional keys, where stc
-aliases clojure.spec.test.check:
+  The `opts` map includes the following optional keys, where `stc` aliases
+  `clojure.spec.test.check`:
 
-::stc/opts  opts to flow through test.check/quick-check
-:gen        map from spec names to generator overrides
+    `::stc/opts` - opts to flow through `test.check/quick-check`
+    `:gen`       - map from spec names to generator overrides
 
-The ::stc/opts include :num-tests in addition to the keys
-documented by test.check. Generator overrides are passed to
-spec/gen when generating function args.
+  The `::stc/opts` include `:num-tests` in addition to the keys documented by test.check. Generator
+  overrides are passed to `spec/gen` when generating function args.
 
-Returns a lazy sequence of check result maps with the following
-keys
+  Returns a lazy sequence of check result maps with the following keys:
 
-:spec       the spec tested
-:sym        optional symbol naming the var tested
-:failure    optional test failure
-::stc/ret   optional value returned by test.check/quick-check
+    `:spec`      - the spec tested
+    `:sym`       - optional symbol naming the var tested
+    `:failure`   - optional test failure
+    `::stc/ret`  - optional value returned by `test.check/quick-check`
 
-The value for :failure can be any exception. Exceptions thrown by
-spec itself will have an ::s/failure value in ex-data:
+  The value for `:failure` can be any exception. Exceptions thrown by spec itself will have an
+  `::s/failure` value in `ex-data`:
 
-:check-failed   at least one checked return did not conform
-:no-args-spec   no :args spec provided
-:no-fn          no fn provided
-:no-fspec       no fspec provided
-:no-gen         unable to generate :args
-:instrument     invalid args detected by instrument
-"
+    `:check-failed` - at least one checked return did not conform
+    `:no-args-spec` - no `:args` spec provided
+    `:no-fn`        - no fn provided
+    `:no-fspec`     - no fspec provided
+    `:no-gen`       - unable to generate `:args`
+    `:instrument`   - invalid args detected by instrument"
   ([] (check (st/checkable-syms)))
   ([sym-or-syms] (check sym-or-syms nil))
   ([sym-or-syms opts]

@@ -53,12 +53,11 @@
        :cljs (constantly []))))
 
 (defn function-instrumented?
-  "Returns true if the function named by sym is currently instrumented.
+  "Returns `true` if the function named by `sym` is currently instrumented.
 
-   CLJS Note: Always returns true on ClojureScript because the internal
-   instrumented-vars atom is private and inaccessible. This means
-   with-instrument won't unstrument functions on CLJS - they remain
-   instrumented. This is usually acceptable for test code."
+   CLJS Note: Always returns `true` on ClojureScript because the internal instrumented-vars atom is
+   private and inaccessible. This means [[with-instrument]] won't unstrument functions on CLJS -
+   they remain instrumented. This is usually acceptable for test code."
   [sym]
   #?(:clj  (let [instrumented-vars @(var-get #'st/instrumented-vars)]
              (contains? instrumented-vars (resolve sym)))
@@ -96,17 +95,16 @@
       :opts        ~(second instrument-args)}))
 
 (defmacro with-instrument
-  "Enables instrumentation for `sym-or-syms` while executing `body`. Once `body`
-  has completed, unstrument will be called."
+  "Enables instrumentation for `sym-or-syms` while executing `body`. Once `body` has completed,
+  unstrument will be called."
   [sym-or-syms & body]
   (let [sym-or-syms (if (= :all sym-or-syms) `(st/instrumentable-syms) sym-or-syms)]
     `(with-instrument* ~[sym-or-syms] ~@body)))
 
 #?(:clj (defn instrumentation
-          "Enables instrumentation for the symbols in `instrument` until the `close`
-           method is invoked. Typically used in `with-open`. `instrument` is a collection
-           of symbols to instrument or `:all` for all instrumentable symbols. Will
-           unstrument symbols on close."
+          "Enables instrumentation for the symbols in `instrument` until the `close` method is
+           invoked. Typically used in `with-open`. `instrument` is a collection of symbols to
+           instrument or `:all` for all instrumentable symbols. Will unstrument symbols on close."
           [{:keys [instrument]}]
           (let [syms (cond
                        (coll? instrument) instrument
@@ -156,12 +154,12 @@
                   {::path path ::form form ::failure :no-gen})))))))
 
 (defmacro deftest
-  "Re-export clojure.test/deftest for convenience when using [provisdom.test.core :as t]"
+  "Re-export `clojure.test/deftest` for convenience when using `[provisdom.test.core :as t]`."
   [name & body]
   `(t/deftest ~name ~@body))
 
 (defmacro is
-  "Re-export clojure.test/is for convenience when using [provisdom.test.core :as t]"
+  "Re-export `clojure.test/is` for convenience when using `[provisdom.test.core :as t]`."
   [form & args]
   `(t/is ~form ~@args))
 
@@ -180,19 +178,20 @@
    `(t/is (~'not= ~expected ~actual) ~msg)))
 
 (defmacro is-approx=
-  "Asserts that x1 and x2 are approximately equal within tolerance.
+  "Asserts that `x1` and `x2` are approximately equal within tolerance.
+
    Options:
-     :tolerance     - absolute maximum allowed difference (default 1e-6)
-     :rel-tolerance - relative tolerance as fraction of max(|x1|,|x2|);
-                      if provided, used instead of absolute tolerance
-     :nan-equal?    - if true, two NaN values are considered equal"
+     `:tolerance`     - absolute maximum allowed difference (default `1e-6`)
+     `:rel-tolerance` - relative tolerance as fraction of `max(|x1|,|x2|)`; if provided, used
+                        instead of absolute tolerance
+     `:nan-equal?`    - if `true`, two `NaN` values are considered equal"
   ([x1 x2] `(is-approx= ~x1 ~x2 :tolerance 1e-6))
   ([x1 x2 & opts]
    `(t/is (#'approx= ~x1 ~x2 ~@opts))))
 
 (defmacro is-thrown-with-data
-  "Asserts that body throws an ExceptionInfo whose ex-data contains
-   all key-value pairs in expected-data (subset match).
+  "Asserts that `body` throws an `ExceptionInfo` whose `ex-data` contains all key-value pairs in
+   `expected-data` (subset match).
 
    Example:
      (is-thrown-with-data {:type :validation-error}
@@ -249,10 +248,11 @@
 
 (defn ^:private approx=
   "Compare two numbers for approximate equality.
+
    Options:
-     :tolerance     - absolute tolerance (default 1e-6)
-     :rel-tolerance - relative tolerance (if provided, used instead of absolute)
-     :nan-equal?    - if true, NaN == NaN"
+     `:tolerance`     - absolute tolerance (default `1e-6`)
+     `:rel-tolerance` - relative tolerance (if provided, used instead of absolute)
+     `:nan-equal?`    - if `true`, `NaN == NaN`"
   ([x1 x2] (approx= x1 x2 :tolerance 1e-6))
   ([x1 x2 & {:keys [tolerance rel-tolerance nan-equal?]}]
    (cond
@@ -285,8 +285,9 @@
          (< diff tolerance))))))
 
 (defmacro no-problems
-  "Returns true if x has no problems when validated against spec, false otherwise.
-  Most useful to be called inside an clojure.test/is form:
+  "Returns `true` if `x` has no problems when validated against `spec`, `false` otherwise. Most
+  useful to be called inside a `clojure.test/is` form:
+
     (t/is (no-problems int? 1))
 
   [[is-valid]] is provided as a shortcut to this."
@@ -313,9 +314,8 @@
             expected-paths-map)))))
 
 (defn data-diff
-  "Returns a sequence of maps describing differences between expected and actual.
-   Each map has :path, :expected, :actual, and :equal? keys.
-   Only returns entries where values differ."
+  "Returns a sequence of maps describing differences between `expected` and `actual`. Each map has
+   `:path`, `:expected`, `:actual`, and `:equal?` keys. Only returns entries where values differ."
   ([expected actual] (data-diff expected actual :tolerance 1e-6))
   ([expected actual & {:as approx=-opts}]
    (let [expected-paths (data-to-paths expected)
@@ -334,13 +334,13 @@
           (remove :equal?)))))
 
 (defmacro is-data-approx=
-  "Asserts that nested data structures x1 and x2 are approximately equal.
-   Compares numbers with approx= and non-numbers with =.
-   On failure, shows which paths differ.
+  "Asserts that nested data structures `x1` and `x2` are approximately equal. Compares numbers with
+   [[approx=]] and non-numbers with `=`. On failure, shows which paths differ.
+
    Options:
-     :tolerance     - absolute max difference for numbers (default 1e-6)
-     :rel-tolerance - relative tolerance; if provided, used instead of absolute
-     :nan-equal?    - if true, two NaN values are considered equal"
+     `:tolerance`     - absolute max difference for numbers (default `1e-6`)
+     `:rel-tolerance` - relative tolerance; if provided, used instead of absolute
+     `:nan-equal?`    - if `true`, two `NaN` values are considered equal"
   ([x1 x2] `(is-data-approx= ~x1 ~x2 :tolerance 1e-6))
   ([x1 x2 & opts]
    `(let [expected# ~x1
@@ -411,21 +411,20 @@
 (defonce failed-args-store (atom {}))
 
 (defn get-failed-args
-  "Returns the failed args for fn-sym from the most recent spec-check failure,
-   or nil if no failure recorded."
+  "Returns the failed args for `fn-sym` from the most recent spec-check failure, or `nil` if no
+   failure recorded."
   [fn-sym]
   (get @failed-args-store fn-sym))
 
 (defn pprint-failed-args
-  "Pretty-prints the failed args for fn-sym. Returns the args if found, nil otherwise."
+  "Pretty-prints the failed args for `fn-sym`. Returns the args if found, `nil` otherwise."
   [fn-sym]
   (when-let [args (get-failed-args fn-sym)]
     (pprint/pprint args)
     args))
 
 (defn spec-check-report
-  "Generate a test report from spec check results.
-   Includes shrinking information when available."
+  "Generate a test report from spec check results. Includes shrinking information when available."
   [check-results]
   (let [first-failure (->> check-results
                            (remove #(-> % :clojure.spec.test.check/ret :result true?))
@@ -533,32 +532,28 @@
 
 #?(:clj
    (defmacro spec-check-
-     "Internal. Run generative tests for spec conformance on vars named by sym-or-syms, a
-     symbol or collection of symbols. If sym-or-syms is not specified, check all
-     checkable vars.
+     "Internal. Run generative tests for spec conformance on vars named by `sym-or-syms`, a symbol
+     or collection of symbols. If `sym-or-syms` is not specified, check all checkable vars.
 
-     The opts map includes the following optional keys:
-       :gen - map from spec names to generator
-       :coll-check-limit - The number of elements validated in a collection spec'ed
-         with 'every'
-       :coll-error-limit - The number of errors reported by explain in a collection
-         spec'ed with 'every'
-       :fspec-iterations -
-         The number of times an anonymous fn specified by fspec will be (generatively)
-         tested during conform
-       :recursion-limit - A soft limit on how many times a branching spec
-         (or/alt/*/opt-keys/multi-spec) can be recursed through during generation.
-         After this a non-recursive branch will be chosen.
-     These opts flow through test.check/quick-check:
-       :num-tests - Number of gen tests to run
-       :seed - Can be used to re-run previous tests
-       :max-size - can be used to control the 'size' of generated values. The size
-         will start at 0, and grow up to max-size, as the number of tests increases.
-         Generators will use the size parameter to bound their growth. This
-         prevents, for example, generating a five-thousand element vector on
-         the very first test.
-       :reporter-fn - A callback function that will be called at various points in
-         the test."
+     The `opts` map includes the following optional keys:
+       `:gen`              - map from spec names to generator
+       `:coll-check-limit` - the number of elements validated in a collection spec'ed with `every`
+       `:coll-error-limit` - the number of errors reported by explain in a collection spec'ed with
+                             `every`
+       `:fspec-iterations` - the number of times an anonymous fn specified by `fspec` will be
+                             (generatively) tested during conform
+       `:recursion-limit`  - a soft limit on how many times a branching spec
+                             (`or`/`alt`/`*`/`opt-keys`/`multi-spec`) can be recursed through
+                             during generation; after this a non-recursive branch will be chosen
+
+     These opts flow through `test.check/quick-check`:
+       `:num-tests`   - number of gen tests to run
+       `:seed`        - can be used to re-run previous tests
+       `:max-size`    - can be used to control the 'size' of generated values; the size will start
+                        at 0, and grow up to max-size, as the number of tests increases; generators
+                        will use the size parameter to bound their growth, preventing, for example,
+                        generating a five-thousand element vector on the very first test
+       `:reporter-fn` - a callback function that will be called at various points in the test"
      ([sym-or-syms] `(spec-check- ~sym-or-syms {}))
      ([sym-or-syms opts]
       (let [syms (if (sequential? sym-or-syms) sym-or-syms [sym-or-syms])
@@ -589,22 +584,22 @@
    `(t/deftest ~name (do-spec-check-report ~sym-or-syms ~opts))))
 
 #?(:clj (defmacro is-spec-check
-          "Runs generative tests for spec conformance and reports results.
-          Equivalent to (t/is (spec-check ...)) but more direct.
+          "Runs generative tests for spec conformance and reports results. Equivalent to
+          `(t/is (spec-check ...))` but more direct.
 
           Options:
-            :num-tests      - number of tests to run (default 1000)
-            :seed           - seed for reproducible tests
-            :max-size       - control size of generated values
-            :gen            - map from spec names to generator overrides
-            :timeout        - timeout in milliseconds
-            :debug          - when true, provides detailed generator diagnostics
-            :coll-check-limit   - elements to validate in collection specs
-            :fspec-iterations   - times to test fns in fspec
-            :recursion-limit    - soft limit on recursive generation
+            `:num-tests`        - number of tests to run (default 1000)
+            `:seed`             - seed for reproducible tests
+            `:max-size`         - control size of generated values
+            `:gen`              - map from spec names to generator overrides
+            `:timeout`          - timeout in milliseconds
+            `:debug`            - when `true`, provides detailed generator diagnostics
+            `:coll-check-limit` - elements to validate in collection specs
+            `:fspec-iterations` - times to test fns in `fspec`
+            `:recursion-limit`  - soft limit on recursive generation
 
-          When :debug is true:
-            - Reduces such-that max-tries for faster failure
+          When `:debug` is `true`:
+            - Reduces `such-that` max-tries for faster failure
             - Stores problematic values for inspection
             - Provides more detailed error context"
           ([sym-or-syms] `(is-spec-check ~sym-or-syms {}))
