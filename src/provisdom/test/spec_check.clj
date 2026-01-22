@@ -7,13 +7,16 @@
   (:require
     [clojure.spec.alpha :as s]
     [clojure.spec.gen.alpha :as gen]
-    [clojure.spec.test.alpha :as st]))
+    [clojure.spec.test.alpha :as st])
+  (:import (java.io FileNotFoundException)))
 
 (defn- get-spec-meta
   "Gets spec metadata from utility-belt.spec-ext if available."
   [spec-key]
-  (when-let [get-meta-fn (requiring-resolve 'provisdom.utility-belt.spec-ext/get-meta)]
-    (get-meta-fn spec-key)))
+  (try
+    (when-let [get-meta-fn (requiring-resolve 'provisdom.utility-belt.spec-ext/get-meta)]
+      (get-meta-fn spec-key))
+    (catch FileNotFoundException _ nil)))
 
 (alias 'stc 'clojure.spec.test.check)
 
