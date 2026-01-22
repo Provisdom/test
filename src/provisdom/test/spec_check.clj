@@ -114,7 +114,7 @@
         (let [tc-ret (quick-check f specd throws (assoc opts :timeout timeout))]
           (make-check-result s spec tc-ret))
 
-        :default
+        :else
         {:failure (ex-info "No :args spec" {::s/failure :no-args-spec})
          :sym     s :spec spec})
       (finally
