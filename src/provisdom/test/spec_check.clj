@@ -137,7 +137,7 @@
     {:s      s
      :v      v
      :spec   (when v (s/get-spec v))
-     :throws (-> (keyword (namespace s) (name s))
+     :throws (-> s
                  get-spec-meta
                  :throws
                  normalize-fdef-throws)}))
