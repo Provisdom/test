@@ -24,6 +24,12 @@
 (s/def ::rel-tolerance (s/double-in :min 0 :max 1 :NaN? false :infinite? false))
 (s/def ::nan-equal? boolean?)
 
+#?(:clj
+   (defn- cljs-env?
+     "Returns true if &env indicates ClojureScript compilation context."
+     [env]
+     (boolean (:ns env))))
+
 (defmacro bind-spec-opts
   [opts & body]
   (let [{:keys [coll-check-limit
@@ -156,26 +162,37 @@
 (defmacro deftest
   "Re-export `clojure.test/deftest` for convenience when using `[provisdom.test.core :as t]`."
   [name & body]
-  `(t/deftest ~name ~@body))
+  (if (cljs-env? &env)
+    `(cljs.test/deftest ~name ~@body)
+    `(clojure.test/deftest ~name ~@body)))
 
 (defmacro is
   "Re-export `clojure.test/is` for convenience when using `[provisdom.test.core :as t]`."
   [form & args]
-  `(t/is ~form ~@args))
+  (if (cljs-env? &env)
+    `(cljs.test/is ~form ~@args)
+    `(clojure.test/is ~form ~@args)))
 
 (defmacro is=
   ([expected actual] `(is= ~expected ~actual nil))
   ([expected actual msg]
-   `(t/is (~'= ~expected ~actual) ~msg)))
+   (if (cljs-env? &env)
+     `(cljs.test/is (~'= ~expected ~actual) ~msg)
+     `(clojure.test/is (~'= ~expected ~actual) ~msg))))
 
 (defmacro is-not
   ([form] `(is-not ~form nil))
-  ([form msg] `(t/is (~'not ~form) ~msg)))
+  ([form msg]
+   (if (cljs-env? &env)
+     `(cljs.test/is (~'not ~form) ~msg)
+     `(clojure.test/is (~'not ~form) ~msg))))
 
 (defmacro is-not=
   ([expected actual] `(is-not= ~expected ~actual nil))
   ([expected actual msg]
-   `(t/is (~'not= ~expected ~actual) ~msg)))
+   (if (cljs-env? &env)
+     `(cljs.test/is (~'not= ~expected ~actual) ~msg)
+     `(clojure.test/is (~'not= ~expected ~actual) ~msg))))
 
 (defmacro is-approx=
   "Asserts that `x1` and `x2` are approximately equal within tolerance.
@@ -187,37 +204,40 @@
      `:nan-equal?`    - if `true`, two `NaN` values are considered equal"
   ([x1 x2] `(is-approx= ~x1 ~x2 :tolerance 1e-6))
   ([x1 x2 & opts]
-   `(t/is (#'approx= ~x1 ~x2 ~@opts))))
+   (if (cljs-env? &env)
+     `(cljs.test/is (approx= ~x1 ~x2 ~@opts))
+     `(clojure.test/is (#'approx= ~x1 ~x2 ~@opts)))))
 
 (defmacro is-thrown-with-data
   "Asserts that `body` throws an `ExceptionInfo` whose `ex-data` contains all key-value pairs in
-   `expected-data` (subset match).
+   `expected-data` (subset match). CLJ only.
 
    Example:
      (is-thrown-with-data {:type :validation-error}
        (throw (ex-info \"bad\" {:type :validation-error :field :name})))"
   [expected-data & body]
-  `(try
-     ~@body
-     (t/do-report {:type     :fail
-                   :message  "Expected exception to be thrown"
-                   :expected '~expected-data
-                   :actual   nil})
-     (catch ExceptionInfo e#
-       (let [actual-data# (ex-data e#)
-             matches?# (every? (fn [[k# v#]]
-                                 (= v# (get actual-data# k#)))
-                         ~expected-data)]
-         (if matches?#
-           (t/do-report {:type     :pass
-                         :message  nil
-                         :expected '~expected-data
-                         :actual   actual-data#})
-           (t/do-report {:type     :fail
-                         :message  "Exception data did not match expected"
-                         :expected '~expected-data
-                         :actual   actual-data#}))
-         matches?#))))
+  (let [do-report-sym (if (cljs-env? &env) 'cljs.test/do-report 'clojure.test/do-report)]
+    `(try
+       ~@body
+       (~do-report-sym {:type     :fail
+                        :message  "Expected exception to be thrown"
+                        :expected '~expected-data
+                        :actual   nil})
+       (catch ~(if (cljs-env? &env) :default 'ExceptionInfo) e#
+         (let [actual-data# (ex-data e#)
+               matches?# (every? (fn [[k# v#]]
+                                   (= v# (get actual-data# k#)))
+                           ~expected-data)]
+           (if matches?#
+             (~do-report-sym {:type     :pass
+                              :message  nil
+                              :expected '~expected-data
+                              :actual   actual-data#})
+             (~do-report-sym {:type     :fail
+                              :message  "Exception data did not match expected"
+                              :expected '~expected-data
+                              :actual   actual-data#}))
+           matches?#)))))
 
 (defn midje-just
   [expected actual]
@@ -246,13 +266,9 @@
               :else (assoc acc cur-path x)))]
     (data-to-paths' x {} [])))
 
-(defn ^:private approx=
-  "Compare two numbers for approximate equality.
-
-   Options:
-     `:tolerance`     - absolute tolerance (default `1e-6`)
-     `:rel-tolerance` - relative tolerance (if provided, used instead of absolute)
-     `:nan-equal?`    - if `true`, `NaN == NaN`"
+(defn ^:no-doc approx=
+  "Internal. Use [[is-approx=]] macro instead."
+  {:private true}
   ([x1 x2] (approx= x1 x2 :tolerance 1e-6))
   ([x1 x2 & {:keys [tolerance rel-tolerance nan-equal?]}]
    (cond
@@ -297,9 +313,13 @@
 (defmacro is-valid
   [spec x]
   (let [form (macroexpand `(no-problems ~spec ~x))]
-    `(t/is ~form)))
+    (if (cljs-env? &env)
+      `(cljs.test/is ~form)
+      `(clojure.test/is ~form))))
 
-(defn ^:private data-approx=
+(defn ^:no-doc data-approx=
+  "Internal. Use [[is-data-approx=]] macro instead."
+  {:private true}
   ([expected actual] (data-approx= expected actual :tolerance 1e-6))
   ([expected actual & {:as approx=-opts}]
    (let [expected-paths-map (data-to-paths expected)
@@ -343,26 +363,30 @@
      `:nan-equal?`    - if `true`, two `NaN` values are considered equal"
   ([x1 x2] `(is-data-approx= ~x1 ~x2 :tolerance 1e-6))
   ([x1 x2 & opts]
-   `(let [expected# ~x1
-          actual# ~x2
-          result# (#'data-approx= expected# actual# ~@opts)]
-      (if result#
-        (t/do-report {:type :pass :message nil :expected expected# :actual actual#})
-        (let [diffs# (data-diff expected# actual# ~@opts)
-              diff-str# (with-out-str
-                          (doseq [{:keys [~'path ~'expected ~'actual]} diffs#]
-                            (println "  Path:" ~'path)
-                            (println "    expected:" ~'expected)
-                            (println "    actual:  " ~'actual)))]
-          (t/do-report {:type     :fail
-                        :message  (str "Data structures differ at " (count diffs#) " path(s):\n"
-                                    diff-str#)
-                        :expected expected#
-                        :actual   actual#})))
-      result#)))
+   (let [do-report-sym (if (cljs-env? &env) 'cljs.test/do-report 'clojure.test/do-report)
+         data-approx=-sym (if (cljs-env? &env)
+                            'provisdom.test.core/data-approx=
+                            `#'data-approx=)]
+     `(let [expected# ~x1
+            actual# ~x2
+            result# (~data-approx=-sym expected# actual# ~@opts)]
+        (if result#
+          (~do-report-sym {:type :pass :message nil :expected expected# :actual actual#})
+          (let [diffs# (data-diff expected# actual# ~@opts)
+                diff-str# (with-out-str
+                            (doseq [{:keys [~'path ~'expected ~'actual]} diffs#]
+                              (println "  Path:" ~'path)
+                              (println "    expected:" ~'expected)
+                              (println "    actual:  " ~'actual)))]
+            (~do-report-sym {:type     :fail
+                             :message  (str "Data structures differ at " (count diffs#)
+                                         " path(s):\n" diff-str#)
+                             :expected expected#
+                             :actual   actual#})))
+        result#))))
 
 #?(:clj (defmethod t/assert-expr 'just
-          [menv msg form]
+          [_menv msg form]
           `(let [expected# ~(nth form 1)
                  actual# ~(nth form 2)
                  result# (midje-just expected# actual#)]
@@ -574,14 +598,16 @@
              (t/do-report report-map#))))
 
 #?(:clj (defmethod t/assert-expr 'spec-check
-          [msg form]
+          [_msg form]
           (let [[_ sym-form opts] form]
             `(do-spec-check-report ~sym-form ~opts))))
 
 (defmacro defspec-test
   ([name sym-or-syms] `(defspec-test ~name ~sym-or-syms nil))
   ([name sym-or-syms opts]
-   `(t/deftest ~name (do-spec-check-report ~sym-or-syms ~opts))))
+   (if (cljs-env? &env)
+     `(cljs.test/deftest ~name (do-spec-check-report ~sym-or-syms ~opts))
+     `(clojure.test/deftest ~name (do-spec-check-report ~sym-or-syms ~opts)))))
 
 #?(:clj (defmacro is-spec-check
           "Runs generative tests for spec conformance and reports results. Equivalent to
