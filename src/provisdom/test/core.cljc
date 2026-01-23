@@ -5,14 +5,14 @@
   (:require
     [clojure.pprint :as pprint]
     [clojure.set :as set]
-    [clojure.test :as t]
+    #?(:clj [clojure.test :as t]
+       :cljs [cljs.test :as t])
     [clojure.string :as str]
     [clojure.spec.alpha :as s]
     [clojure.spec.test.alpha :as st]
     [clojure.spec.gen.alpha :as gen]
     #?(:clj [provisdom.test.spec-check :as p.st])
     #?(:cljs [orchestra-cljs.spec.test])
-    #?(:cljs [cljs.test])
 
     ;; We require clojure.test for some CLJS code, in order for spec-check to run.
     #?(:cljs [clojure.test.check])
@@ -104,7 +104,10 @@
   "Enables instrumentation for `sym-or-syms` while executing `body`. Once `body` has completed,
   unstrument will be called."
   [sym-or-syms & body]
-  (let [sym-or-syms (if (= :all sym-or-syms) `(st/instrumentable-syms) sym-or-syms)]
+  (let [instrumentable-syms-sym (if (cljs-env? &env)
+                                  'cljs.spec.test.alpha/instrumentable-syms
+                                  'clojure.spec.test.alpha/instrumentable-syms)
+        sym-or-syms (if (= :all sym-or-syms) `(~instrumentable-syms-sym) sym-or-syms)]
     `(with-instrument* ~[sym-or-syms] ~@body)))
 
 #?(:clj (defn instrumentation
@@ -593,9 +596,12 @@
 ;; must be done at compile time for correct line number resolution
 #?(:clj (defmacro do-spec-check-report
           [sym-or-syms opts]
-          `(let [check-results# (spec-check- ~sym-or-syms ~opts)
-                 report-map# (spec-check-report check-results#)]
-             (t/do-report report-map#))))
+          (let [do-report-sym (if (cljs-env? &env)
+                                'cljs.test/do-report
+                                'clojure.test/do-report)]
+            `(let [check-results# (spec-check- ~sym-or-syms ~opts)
+                   report-map# (spec-check-report check-results#)]
+               (~do-report-sym report-map#)))))
 
 #?(:clj (defmethod t/assert-expr 'spec-check
           [_msg form]
