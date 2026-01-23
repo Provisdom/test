@@ -125,7 +125,7 @@
      (with-redefs [gen/such-that (fn
                                    ([pred# gen#]
                                     (such-that# pred# gen# ~such-that-opts))
-                                   ([pred# gen# opts#]
+                                   ([pred# gen# _opts#]
                                     (such-that# pred# gen# ~such-that-opts)))]
        ~@body)))
 

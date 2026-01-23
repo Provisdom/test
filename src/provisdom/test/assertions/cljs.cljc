@@ -12,7 +12,7 @@
 
 #?(:clj
    (defmethod t/assert-expr 'spec-check
-     [menv msg form]
+     [menv _msg form]
      (let [[_ sym-form opts] form
            syms (if (coll? sym-form) sym-form [sym-form])
            ;; fully qualify syms here since it requires the cljs analyzer api
