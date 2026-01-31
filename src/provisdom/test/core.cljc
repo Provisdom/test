@@ -1,22 +1,21 @@
 (ns provisdom.test.core
   #?(:cljs (:require-macros
-             [provisdom.test.core]
-             [provisdom.test.assertions.cljs]))
+             [provisdom.test.assertions.cljs]
+             [provisdom.test.core]))
   (:require
     [clojure.pprint :as pprint]
     [clojure.set :as set]
-    #?(:clj [clojure.test :as t]
-       :cljs [cljs.test :as t])
-    [clojure.string :as str]
     [clojure.spec.alpha :as s]
-    [clojure.spec.test.alpha :as st]
     [clojure.spec.gen.alpha :as gen]
-    #?(:clj [provisdom.test.spec-check :as p.st])
-    #?(:cljs [orchestra-cljs.spec.test])
-
-    ;; We require clojure.test for some CLJS code, in order for spec-check to run.
+    #_{:clj-kondo/ignore [:unused-namespace]}
+    [clojure.spec.test.alpha :as st]
+    [clojure.string :as str]
+    #?(:clj  [clojure.test :as t]
+       :cljs [cljs.test :as t])
     #?(:cljs [clojure.test.check])
-    #?(:cljs [clojure.test.check.properties]))
+    [clojure.test.check.properties :as prop]
+    #?(:cljs [orchestra-cljs.spec.test])
+    #?(:clj [provisdom.test.spec-check :as p.st]))
   #?(:clj (:import (clojure.lang ExceptionInfo)
                    (java.io FileNotFoundException Closeable))))
 
@@ -64,9 +63,9 @@
    CLJS Note: Always returns `true` on ClojureScript because the internal instrumented-vars atom is
    private and inaccessible. This means [[with-instrument]] won't unstrument functions on CLJS -
    they remain instrumented. This is usually acceptable for test code."
-  [sym]
+  [_sym]
   #?(:clj  (let [instrumented-vars @(var-get #'st/instrumented-vars)]
-             (contains? instrumented-vars (resolve sym)))
+             (contains? instrumented-vars (resolve _sym)))
      :cljs true))
 
 (defn collectionize
@@ -96,9 +95,9 @@
 (defmacro with-instrument*
   [instrument-args & body]
   `(with-instrument-impl
-     {:sym-or-syms ~(first instrument-args)
-      :f           (fn [] ~@body)
-      :opts        ~(second instrument-args)}))
+     {:f           (fn [] ~@body)
+      :opts        ~(second instrument-args)
+      :sym-or-syms ~(first instrument-args)}))
 
 (defmacro with-instrument
   "Enables instrumentation for `sym-or-syms` while executing `body`. Once `body` has completed,
@@ -154,13 +153,13 @@
                                      (when-not valid?
                                        (swap! invalid-store assoc og-spec x))
                                      valid?))
-                                 {:spec      spec
+                                 {:form      form
                                   :overrides overrides
                                   :path      path
-                                  :form      form}) g 100)
+                                  :spec      spec}) g 100)
        (let [abbr (s/abbrev form)]
          (throw (ex-info (str "Unable to construct gen at: " path " for: " abbr)
-                  {::path path ::form form ::failure :no-gen})))))))
+                  {::failure :no-gen, ::form form, ::path path})))))))
 
 (defmacro deftest
   "Re-export `clojure.test/deftest` for convenience when using `[provisdom.test.core :as t]`."
@@ -222,24 +221,24 @@
   (let [do-report-sym (if (cljs-env? &env) 'cljs.test/do-report 'clojure.test/do-report)]
     `(try
        ~@body
-       (~do-report-sym {:type     :fail
-                        :message  "Expected exception to be thrown"
+       (~do-report-sym {:actual   nil
                         :expected '~expected-data
-                        :actual   nil})
+                        :message  "Expected exception to be thrown"
+                        :type     :fail})
        (catch ~(if (cljs-env? &env) :default 'ExceptionInfo) e#
          (let [actual-data# (ex-data e#)
                matches?# (every? (fn [[k# v#]]
                                    (= v# (get actual-data# k#)))
                            ~expected-data)]
            (if matches?#
-             (~do-report-sym {:type     :pass
+             (~do-report-sym {:actual   actual-data#
+                              :expected '~expected-data
                               :message  nil
+                              :type     :pass})
+             (~do-report-sym {:actual   actual-data#
                               :expected '~expected-data
-                              :actual   actual-data#})
-             (~do-report-sym {:type     :fail
                               :message  "Exception data did not match expected"
-                              :expected '~expected-data
-                              :actual   actual-data#}))
+                              :type     :fail}))
            matches?#)))))
 
 (defn midje-just
@@ -353,7 +352,10 @@
                                 (= a ::missing) false
                                 (number? e) (apply approx= e a (mapcat identity approx=-opts))
                                 :else (= e a))]
-                   {:path path :expected e :actual a :equal? equal?})))
+                   {:actual   a
+                    :equal?   equal?
+                    :expected e
+                    :path     path})))
           (remove :equal?)))))
 
 (defmacro is-data-approx=
@@ -374,18 +376,21 @@
             actual# ~x2
             result# (~data-approx=-sym expected# actual# ~@opts)]
         (if result#
-          (~do-report-sym {:type :pass :message nil :expected expected# :actual actual#})
+          (~do-report-sym {:actual   actual#
+                           :expected expected#
+                           :message  nil
+                           :type     :pass})
           (let [diffs# (data-diff expected# actual# ~@opts)
                 diff-str# (with-out-str
                             (doseq [{:keys [~'path ~'expected ~'actual]} diffs#]
                               (println "  Path:" ~'path)
                               (println "    expected:" ~'expected)
                               (println "    actual:  " ~'actual)))]
-            (~do-report-sym {:type     :fail
+            (~do-report-sym {:actual   actual#
+                             :expected expected#
                              :message  (str "Data structures differ at " (count diffs#)
                                          " path(s):\n" diff-str#)
-                             :expected expected#
-                             :actual   actual#})))
+                             :type     :fail})))
         result#))))
 
 #?(:clj (defmethod t/assert-expr 'just
@@ -394,14 +399,14 @@
                  actual# ~(nth form 2)
                  result# (midje-just expected# actual#)]
              (if result#
-               (t/do-report {:type     :pass
-                             :message  ~msg
+               (t/do-report {:actual   actual#
                              :expected '~form
-                             :actual   actual#})
-               (t/do-report {:type     :fail
                              :message  ~msg
+                             :type     :pass})
+               (t/do-report {:actual   actual#
                              :expected '~(nth form 1)
-                             :actual   actual#}))
+                             :message  ~msg
+                             :type     :fail}))
              result#)))
 
 (def ^:dynamic *default-spec-check-opts* {})
@@ -414,6 +419,7 @@
 (def quick-check-stc-keys
   [:num-tests :seed :max-size :reporter-fn])
 
+#_{:clj-kondo/ignore [:unused-private-var]}
 (defn- normalize-spec-test-opts
   [opts]
   (let [base-opts (merge *default-spec-check-opts* opts)]
@@ -477,10 +483,11 @@
             shrunk-args (first (:smallest shrunk))
             failing-args (or shrunk-args original-args)
             spec-error (-> (:result-data test-check-ret)
-                           :clojure.test.check.properties/error)
+                           ::prop/error)
             timeout? (and (instance? ExceptionInfo (:result test-check-ret))
                           (contains? (ex-data (:result test-check-ret))
-                                     :provisdom.test.spec-check/timeout))
+                                     #?(:clj  ::p.st/timeout
+                                        :cljs :provisdom.test.spec-check/timeout)))
             spec-error? (fn [ex]
                           (and (instance? ExceptionInfo ex)
                                (::s/failure (ex-data ex))))
@@ -493,9 +500,8 @@
             spec-error-map (fn [ex]
                              (let [spec-error-message (ex-message ex)
                                    explain-data (ex-data ex)]
-                               {:type     :fail
+                               {:actual   "n/a"
                                 :expected "n/a"
-                                :actual   "n/a"
                                 :message  (str spec-error-message " (seed: " seed ")\n"
                                             pass-info
                                             shrink-info
@@ -503,15 +509,16 @@
                                             (with-out-str (s/explain-out explain-data)) "\n"
                                             "Args:\n\n"
                                             (with-out-str (pprint/pprint failing-args))
-                                            "---------------")}))]
+                                            "---------------")
+                                :type     :fail}))]
         (swap! failed-args-store assoc fn-sym failing-args)
         (cond
           ;; Timeout
           timeout?
-          {:type     :fail
+          {:actual   (:result test-check-ret)
            :expected ""
-           :actual   (:result test-check-ret)
-           :message  (str "Spec check timed out.\n" pass-info)}
+           :message  (str "Spec check timed out.\n" pass-info)
+           :type     :fail}
 
           (spec-error? spec-error)
           (spec-error-map spec-error)
@@ -522,22 +529,22 @@
 
           ;; Generator threw an exception
           (instance? #?(:clj Throwable :cljs js/Error) (:failure first-failure))
-          {:type     :fail
+          {:actual   (:failure first-failure)
            :expected ""
-           :actual   (:failure first-failure)
-           :message  (str "A generator threw an exception.\n" pass-info)}
+           :message  (str "A generator threw an exception.\n" pass-info)
+           :type     :fail}
 
-          :else {:type     :fail
+          :else {:actual   spec-error
                  :expected ""
-                 :actual   spec-error
-                 :message  (str fn-sym " threw an exception.\n" pass-info)}))
+                 :message  (str fn-sym " threw an exception.\n" pass-info)
+                 :type     :fail}))
       ;; all checks passed
       (do
         (swap! failed-args-store (fn [failed]
                                    (apply dissoc failed (map :sym check-results))))
-        {:type    :pass
-         :message (str "Generative tests pass for "
-                    (str/join ", " (map :sym check-results)))}))))
+        {:message (str "Generative tests pass for "
+                    (str/join ", " (map :sym check-results)))
+         :type    :pass}))))
 
 #?(:clj
    (defn- fully-qualified-namespace

@@ -20,13 +20,13 @@
           (t/is (= `(clojure.test/is (~'= 1 1) nil) (macroexpand-1 `(t/is= 1 1 nil))))
           ;; is-not expands correctly
           (t/is (= `(clojure.test/is (~'not false) "some message")
-                   (macroexpand-1 `(t/is-not false "some message"))))))
+                  (macroexpand-1 `(t/is-not false "some message"))))))
 
 (t/deftest t-midje-just
   ;; matching cases
   (t/is (t/midje-just [1 1 1] [1 1 1]))
   (t/is (t/midje-just [1 1 #(and (number? %) (not (== % %)))]
-                      [1 1 #?(:clj Double/NaN :cljs js/NaN)]))
+          [1 1 #?(:clj Double/NaN :cljs js/NaN)]))
   ;; non-matching case
   (t/is-not (t/midje-just [1 1 1] [1 1 2])))
 
@@ -187,10 +187,10 @@
    (t/deftest is-thrown-with-data-test
      ;; matches when all expected keys present with correct values
      (t/is (t/is-thrown-with-data {:type :test-error}
-             (throw (ex-info "test" {:type :test-error :extra :data}))))
+             (throw (ex-info "test" {:extra :data, :type :test-error}))))
      ;; matches with multiple keys
-     (t/is (t/is-thrown-with-data {:type :test-error :code 42}
-             (throw (ex-info "test" {:type :test-error :code 42 :extra :data}))))
+     (t/is (t/is-thrown-with-data {:code 42 :type :test-error}
+             (throw (ex-info "test" {:code 42 :extra :data :type :test-error}))))
      ;; empty expected-data matches any ex-info
      (t/is (t/is-thrown-with-data {}
              (throw (ex-info "test" {:anything :here}))))))

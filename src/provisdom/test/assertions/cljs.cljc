@@ -1,5 +1,6 @@
 (ns provisdom.test.assertions.cljs
   (:require
+    #_{:clj-kondo/ignore [:unused-namespace]}
     [cljs.test :as t]
     #?(:clj [cljs.analyzer.api :as ana])))
 

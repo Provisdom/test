@@ -2,8 +2,9 @@
   "Wrapper on `clojure.spec.test.alpha` with changes to support the `:throws` keyword in `fdef`
   specs and many other things.
 
-  Some original code copied from Spec.
-  https://github.com/clojure/spec.alpha/blob/eaae63904808a0988f6723d1e9e1ee7db6f07ee5/src/main/clojure/clojure/spec/test/alpha.clj"
+  Some original code copied from Spec:
+  https://github.com/clojure/spec.alpha/blob/eaae63904808a0988f6723d1e9e1ee7db6f07ee5/
+  src/main/clojure/clojure/spec/test/alpha.clj"
   (:require
     [clojure.spec.alpha :as s]
     [clojure.spec.gen.alpha :as gen]
@@ -89,8 +90,8 @@
 (defn- make-check-result
   "Builds spec result map."
   [check-sym spec test-check-ret]
-  (merge {:spec     spec
-          ::stc/ret test-check-ret}
+  (merge {::stc/ret test-check-ret
+          :spec     spec}
     (when check-sym
       {:sym check-sym})
     (when-let [result (-> test-check-ret :result)]
@@ -108,7 +109,7 @@
       (cond
         (or (nil? f) (some-> v meta :macro))
         {:failure (ex-info "No fn to spec" {::s/failure :no-fn})
-         :sym     s :spec spec}
+         :spec    spec :sym s}
 
         (:args specd)
         (let [tc-ret (quick-check f specd throws (assoc opts :timeout timeout))]
@@ -116,7 +117,7 @@
 
         :else
         {:failure (ex-info "No :args spec" {::s/failure :no-args-spec})
-         :sym     s :spec spec})
+         :spec    spec :sym s})
       (finally
         (when re-inst? (st/instrument s))))))
 
@@ -135,12 +136,12 @@
   [s]
   (let [v (resolve s)]
     {:s      s
-     :v      v
      :spec   (when v (s/get-spec v))
      :throws (-> s
-                 get-spec-meta
-                 :throws
-                 normalize-fdef-throws)}))
+               get-spec-meta
+               :throws
+               normalize-fdef-throws)
+     :v      v}))
 
 (defn- validate-check-opts
   [opts]
