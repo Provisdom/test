@@ -145,18 +145,18 @@
    ;;(prn {:spec spec :over overrides :path path :form form})
    (let [spec (#'s/specize og-spec)]
      (if-let [g (or (when-let [gfn (or (get overrides (or (#'s/spec-name spec) spec))
-                                       (get overrides path))]
+                                     (get overrides path))]
                       (gfn))
-                    (s/gen* spec overrides path rmap))]
+                  (s/gen* spec overrides path rmap))]
        (gen/such-that (with-meta (fn [x]
                                    (let [valid? (s/valid? spec x)]
                                      (when-not valid?
                                        (swap! invalid-store assoc og-spec x))
                                      valid?))
-                                 {:form      form
-                                  :overrides overrides
-                                  :path      path
-                                  :spec      spec}) g 100)
+                        {:form      form
+                         :overrides overrides
+                         :path      path
+                         :spec      spec}) g 100)
        (let [abbr (s/abbrev form)]
          (throw (ex-info (str "Unable to construct gen at: " path " for: " abbr)
                   {::failure :no-gen, ::form form, ::path path})))))))
@@ -327,13 +327,13 @@
    (let [expected-paths-map (data-to-paths expected)
          actual-paths-map (data-to-paths actual)]
      (and (= (set (keys expected-paths-map))
-             (set (keys actual-paths-map)))
-          (every? (fn [[path expected-val]]
-                    (let [actual-val (get actual-paths-map path)]
-                      (if (number? expected-val)
-                        (approx= expected-val actual-val approx=-opts)
-                        (= expected-val (get actual-paths-map path)))))
-            expected-paths-map)))))
+            (set (keys actual-paths-map)))
+       (every? (fn [[path expected-val]]
+                 (let [actual-val (get actual-paths-map path)]
+                   (if (number? expected-val)
+                     (approx= expected-val actual-val approx=-opts)
+                     (= expected-val (get actual-paths-map path)))))
+         expected-paths-map)))))
 
 (defn data-diff
   "Returns a sequence of maps describing differences between `expected` and `actual`. Each map has
@@ -344,19 +344,19 @@
          actual-paths (data-to-paths actual)
          all-paths (set/union (set (keys expected-paths)) (set (keys actual-paths)))]
      (->> all-paths
-          (map (fn [path]
-                 (let [e (get expected-paths path ::missing)
-                       a (get actual-paths path ::missing)
-                       equal? (cond
-                                (= e ::missing) false
-                                (= a ::missing) false
-                                (number? e) (apply approx= e a (mapcat identity approx=-opts))
-                                :else (= e a))]
-                   {:actual   a
-                    :equal?   equal?
-                    :expected e
-                    :path     path})))
-          (remove :equal?)))))
+       (map (fn [path]
+              (let [e (get expected-paths path ::missing)
+                    a (get actual-paths path ::missing)
+                    equal? (cond
+                             (= e ::missing) false
+                             (= a ::missing) false
+                             (number? e) (apply approx= e a (mapcat identity approx=-opts))
+                             :else (= e a))]
+                {:actual   a
+                 :equal?   equal?
+                 :expected e
+                 :path     path})))
+       (remove :equal?)))))
 
 (defmacro is-data-approx=
   "Asserts that nested data structures `x1` and `x2` are approximately equal. Compares numbers with
@@ -424,12 +424,12 @@
   [opts]
   (let [base-opts (merge *default-spec-check-opts* opts)]
     (-> base-opts
-        (assoc :clojure.spec.test.check/opts (select-keys opts quick-check-stc-keys))
-        (update :clojure.spec.test.check/opts
-                ;; exists for backwards compatibility. Eventually this can be removed
-                merge (:test-check base-opts {}))
-        ;; Pass timeout through for spec-check
-        (cond-> (:timeout opts) (assoc :timeout (:timeout opts))))))
+      (assoc :clojure.spec.test.check/opts (select-keys opts quick-check-stc-keys))
+      (update :clojure.spec.test.check/opts
+        ;; exists for backwards compatibility. Eventually this can be removed
+        merge (:test-check base-opts {}))
+      ;; Pass timeout through for spec-check
+      (cond-> (:timeout opts) (assoc :timeout (:timeout opts))))))
 
 #?(:clj
    (defn spec-test-check
@@ -460,8 +460,8 @@
   "Generate a test report from spec check results. Includes shrinking information when available."
   [check-results]
   (let [first-failure (->> check-results
-                           (remove #(-> % :clojure.spec.test.check/ret :result true?))
-                           first)]
+                        (remove #(-> % :clojure.spec.test.check/ret :result true?))
+                        first)]
     (if first-failure
       ;; reasons for a check to fail:
       ;; - generator threw an exception: test.check results
@@ -483,14 +483,13 @@
             shrunk-args (first (:smallest shrunk))
             failing-args (or shrunk-args original-args)
             spec-error (-> (:result-data test-check-ret)
-                           ::prop/error)
+                         ::prop/error)
             timeout? (and (instance? ExceptionInfo (:result test-check-ret))
-                          (contains? (ex-data (:result test-check-ret))
-                                     #?(:clj  ::p.st/timeout
-                                        :cljs :provisdom.test.spec-check/timeout)))
+                       (contains? (ex-data (:result test-check-ret))
+                         :provisdom.test.spec-check/timeout))
             spec-error? (fn [ex]
                           (and (instance? ExceptionInfo ex)
-                               (::s/failure (ex-data ex))))
+                            (::s/failure (ex-data ex))))
             shrink-info (when (pos? shrink-depth)
                           (str "Shrunk " shrink-depth " times"
                             (when shrink-total (str " (" shrink-total " attempts)"))
@@ -592,9 +591,9 @@
      ([sym-or-syms opts]
       (let [syms (if (sequential? sym-or-syms) sym-or-syms [sym-or-syms])
             syms (->> syms
-                      (map #(fully-qualified-namespace &env %))
-                      (filter some?)
-                      (vec))
+                   (map #(fully-qualified-namespace &env %))
+                   (filter some?)
+                   (vec))
             check-opts (normalize-spec-test-opts opts)]
         (if (not-empty syms)
           `(bind-spec-opts ~opts (-check-1 '~syms ~check-opts))
@@ -646,6 +645,6 @@
            (let [debug? (:debug opts)]
              (if debug?
                `(such-that-override {:max-tries 10}
-                                    (do-spec-check-report ~sym-or-syms ~(dissoc opts :debug)))
+                  (do-spec-check-report ~sym-or-syms ~(dissoc opts :debug)))
                `(do-spec-check-report ~sym-or-syms ~opts))))))
 
