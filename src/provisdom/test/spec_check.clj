@@ -90,8 +90,7 @@
 (defn- make-check-result
   "Builds spec result map."
   [check-sym spec test-check-ret]
-  (merge {::stc/ret test-check-ret
-          :spec     spec}
+  (merge {:spec spec ::stc/ret test-check-ret}
     (when check-sym
       {:sym check-sym})
     (when-let [result (-> test-check-ret :result)]
