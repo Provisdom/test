@@ -272,7 +272,7 @@
   "Internal. Use [[is-approx=]] macro instead."
   {:private true}
   ([x1 x2] (approx= x1 x2 :tolerance 1e-6))
-  ([x1 x2 & {:keys [tolerance rel-tolerance nan-equal?]}]
+  ([x1 x2 & {:keys [tolerance rel-tolerance nan-equal?] :or {tolerance 1e-6}}]
    (cond
      ;; Both are infinite - check if same infinity
      (and (infinite? x1) (infinite? x2))
