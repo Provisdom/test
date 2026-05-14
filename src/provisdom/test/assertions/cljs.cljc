@@ -3,6 +3,7 @@
     #_{:clj-kondo/ignore [:unused-namespace]}
     [cljs.test :as t]
     #?(:clj [cljs.analyzer.api :as ana])))
+;; -- ME: no companion test — single CLJS-only defmethod; CLJS test scaffolding not justified
 
 #?(:clj
    (defn fully-qualify

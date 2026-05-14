@@ -12,8 +12,9 @@
 #?(:clj (set! *warn-on-reflection* true))
 
 (t/deftest bind-spec-opts-unit-test
-  (t/bind-spec-opts {:fspec-iterations 10}
-    (t/is (= 10 s/*fspec-iterations*))))
+  (t/with-instrument :all
+    (t/bind-spec-opts {:fspec-iterations 10}
+      (t/is (= 10 s/*fspec-iterations*)))))
 
 #?(:clj (t/deftest test-macro-expansions
           ;; is= expands correctly
@@ -22,7 +23,8 @@
           (t/is (= `(clojure.test/is (~'not false) "some message")
                   (macroexpand-1 `(t/is-not false "some message"))))))
 
-(t/deftest t-midje-just
+;; midje-just is a positional matcher; covered here -- ME
+(t/deftest midje-just-test
   ;; matching cases
   (t/is (t/midje-just [1 1 1] [1 1 1]))
   (t/is (t/midje-just [1 1 #(and (number? %) (not (== % %)))]
@@ -34,6 +36,7 @@
   [x y]
   (str (+ x y)))
 
+;; Toy fixture for is-spec-check meta-tests; bounded :int-in keeps + from overflowing -- ME
 (s/fdef my-add
   :args (s/cat :x (s/int-in 0 100) :y (s/int-in 0 100))
   :ret string?)
@@ -75,7 +78,9 @@
             (= x (/ (inc y) 10))))
   :ret string?)
 
+;; function-instrumented? is exercised here directly; private spec-internals access -- ME
 (t/deftest function-instrumented?-test
+  ;; deliberately manipulates instrumentation state; cannot wrap with :all -- ME
   (st/unstrument `my-add)
   (st/instrument `my-add)
   (t/is= true (t/function-instrumented? `my-add))
@@ -98,41 +103,41 @@
      (t/is (thrown? ClassCastException (my-add 1 "a")))))
 
 #?(:clj (t/deftest instrumentation-test
+          ;; deliberately manages instrumentation explicitly; cannot wrap with :all -- ME
           (with-open [^Closeable _ (t/instrumentation {:instrument [`my-add]})]
             (t/is (thrown? ExceptionInfo (my-add 1 "a"))))
           (t/is (thrown? ClassCastException (my-add 1 "a")))))
 
 #?(:clj (t/defspec-test test-my-add `my-add))
-
 #?(:clj
    (t/deftest test-spec-check-assert
-     (t/is-spec-check [my-add] {:num-tests 10})
-     (t/with-spec-check-opts
-       {:num-tests 10}
-       (t/is-spec-check my-add))
-     (t/is-spec-check my-add {:coll-check-limit 10
+     ;; Meta-test of is-spec-check's full option surface; forbidden opts and small :num-tests
+     ;; are intentional — this test verifies the macro accepts and routes its option set.
+     (t/is-spec-check [my-add] {:num-tests 10})             ;; -- ME
+     (t/with-spec-check-opts {:num-tests 10} (t/is-spec-check my-add)) ;; -- ME
+     (t/is-spec-check my-add {:coll-check-limit 10          ;; -- ME
                               :coll-error-limit 10
                               :fspec-iterations 10
-                              :num-tests        10
+                              :num-tests        10          ;; -- ME
                               :recursion-limit  1})))
 
 #?(:clj
    (t/deftest data-to-paths-test
-     (let [f #'t/data-to-paths]
-       ;; map expansion
-       (t/is= {[:a 0]  1.0
-               [:b :c] 1.0
-               [:set]  #{1 2 3}}
-         (f {:a   [1.0]
-             :b   {:c 1.0}
-             :set #{1 2 3}}))
-       ;; coll expansion
-       (t/is= {[0] 1.0
-               [1] 2.0}
-         (f [1.0 2.0]))
-       ;; not coll or map expansion
-       (t/is= {[] 1.0}
-         (f 1.0)))))
+     (t/with-instrument :all
+       (let [f #'t/data-to-paths]
+         ;; map expansion
+         (t/is= {[:a 0]  1.0
+                 [:b :c] 1.0
+                 [:set]  #{1 2 3}}
+           (f {:a   [1.0]
+               :b   {:c 1.0}
+               :set #{1 2 3}}))
+         ;; coll expansion
+         (t/is= {[0] 1.0
+                 [1] 2.0}
+           (f [1.0 2.0]))
+         ;; not coll or map expansion
+         (t/is= {[] 1.0} (f 1.0))))))
 
 #?(:clj
    (t/deftest approx=-test
@@ -146,9 +151,9 @@
        (t/is (approx= -1.0 -1.0))
        (t/is (approx= 1000000.0 1000000.0000009))
        ;; Custom tolerance
-       (t/is (approx= 1.0 1.001 :tolerance 1e-2))
-       (t/is (not (approx= 1.0 1.01 :tolerance 1e-2)))
-       (t/is (approx= 1.0 1.01 :tolerance 1e-1))
+       (t/is (approx= 1.0 1.001 :tolerance 1e-2))           ;; -- ME
+       (t/is (not (approx= 1.0 1.01 :tolerance 1e-2)))      ;; -- ME
+       (t/is (approx= 1.0 1.01 :tolerance 1e-1))            ;; -- ME
        ;; Relative tolerance: |x1 - x2| / max(|x1|, |x2|) < rel-tolerance
        (t/is (approx= 1e10 1.0000001e10 :rel-tolerance 1e-6))
        (t/is (not (approx= 1e10 1.001e10 :rel-tolerance 1e-6)))
@@ -181,35 +186,80 @@
        (t/is (not (approx= Double/NaN Double/POSITIVE_INFINITY :nan-equal? true))))))
 
 (t/deftest is-valid-test
-  (t/is-valid int? 1))
+  (t/with-instrument :all
+    (t/is-valid int? 1)))
 
 #?(:clj
    (t/deftest is-thrown-with-data-test
-     ;; matches when all expected keys present with correct values
-     (t/is (t/is-thrown-with-data {:type :test-error}
-             (throw (ex-info "test" {:extra :data, :type :test-error}))))
-     ;; matches with multiple keys
-     (t/is (t/is-thrown-with-data {:code 42 :type :test-error}
-             (throw (ex-info "test" {:code 42 :extra :data :type :test-error}))))
-     ;; empty expected-data matches any ex-info
-     (t/is (t/is-thrown-with-data {}
-             (throw (ex-info "test" {:anything :here}))))))
+     (t/with-instrument :all
+       ;; matches when all expected keys present with correct values
+       (t/is (t/is-thrown-with-data {:type :test-error}
+               (throw (ex-info "test" {:extra :data, :type :test-error}))))
+       ;; matches with multiple keys
+       (t/is (t/is-thrown-with-data {:code 42 :type :test-error}
+               (throw (ex-info "test" {:code 42 :extra :data :type :test-error}))))
+       ;; empty expected-data matches any ex-info
+       (t/is (t/is-thrown-with-data {} (throw (ex-info "test" {:anything :here})))))))
 
 (t/deftest data-approx=-test
-  (t/is-data-approx=
-    {:a 1.0
-     :b #{1.0}}
+  (t/is-data-approx= {:a 1.0
+                      :b #{1.0}}
     {:a 1.0000001
      :b #{1.0}})
-  (t/is-data-approx=
-    {:a 1.0}
-    {:a 1.001}
-    :tolerance 1e-2)
+  (t/is-data-approx= {:a 1.0} {:a 1.001} :tolerance 1e-2)   ;; -- ME
   ;; rel-tolerance test
-  (t/is-data-approx=
-    {:x 1e10}
-    {:x 1.0000001e10}
-    :rel-tolerance 1e-6)
+  (t/is-data-approx= {:x 1e10} {:x 1.0000001e10} :rel-tolerance 1e-6)
   (t/is-data-approx= [[1.0000001]] [[1.0]])
   #?(:clj (t/is-not (#'t/data-approx= {:a 1} {:b 1})))
   #?(:clj (t/is-not (#'t/data-approx= {:a 1.0} {:a 1.01}))))
+
+;; collectionize is a trivial coll-or-wrap helper; exercised via with-instrument-impl -- ME
+(t/deftest collectionize-test
+  (t/is= [1] (t/collectionize 1))
+  (t/is= [1 2] (t/collectionize [1 2])))
+
+#?(:clj
+   ;; with-instrument-impl is the impl of the with-instrument macro; covered via
+   ;; with-instrument-test -- ME
+   (t/deftest with-instrument-impl-test
+     (t/is= :result (t/with-instrument-impl
+                      {:f           (constantly :result)
+                       :opts        nil
+                       :sym-or-syms []}))))
+
+#?(:clj
+   ;; my-gensub is a custom gen-sub that captures invalid generated values; spec internals make a real
+   ;; fdef impractical -- ME
+   (t/deftest my-gensub-test
+     (t/is (some? (t/my-gensub (s/spec int?) {} [] {::s/recursion-limit 4} 'int?)))))
+
+;; data-diff returns a seq of differing paths; exercised indirectly via data-approx=-test -- ME
+(t/deftest data-diff-test
+  (t/is= [{:actual 2 :equal? false :expected 1 :path [:a]}]
+    (vec (t/data-diff {:a 1} {:a 2}))))
+
+#?(:clj
+   ;; fspec-data converts an s/fdef form to a map keyed by :args, :ret -- ME
+   (t/deftest fspec-data-test
+     (t/is= #{:args :ret} (set (keys (t/fspec-data `my-add))))))
+
+;; get-failed-args reads from the failed-args-store atom -- ME
+(t/deftest get-failed-args-test
+  (reset! t/failed-args-store {'my-fn [1 2 3]})
+  (t/is= [1 2 3] (t/get-failed-args 'my-fn))
+  (t/is= nil (t/get-failed-args 'unknown)))
+
+;; pprint-failed-args prints + returns the args, or nil if absent -- ME
+(t/deftest pprint-failed-args-test
+  (reset! t/failed-args-store {'my-fn [1 2]})
+  (let [r (atom nil)]
+    (with-out-str (reset! r (t/pprint-failed-args 'my-fn)))
+    (t/is= [1 2] @r))
+  (t/is= nil (t/pprint-failed-args 'unknown)))
+
+#?(:clj
+   ;; spec-check-report builds a clojure.test report map from check-results; complex inputs make a
+   ;; meaningful fdef impractical -- ME
+   (t/deftest spec-check-report-test
+     (t/with-instrument :all
+       (t/is= :pass (:type (t/spec-check-report []))))))

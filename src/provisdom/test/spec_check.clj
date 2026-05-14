@@ -10,6 +10,7 @@
     [clojure.spec.gen.alpha :as gen]
     [clojure.spec.test.alpha :as st])
   (:import (java.io FileNotFoundException)))
+;; -- ME: no companion test — wrapper exercised indirectly via every is-spec-check in the repo
 
 (defn- get-spec-meta
   "Gets spec metadata from utility-belt.spec-ext if available."

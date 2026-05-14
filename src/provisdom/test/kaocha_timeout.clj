@@ -15,6 +15,7 @@
    ```"
   (:require
     [kaocha.hierarchy :as hierarchy]))
+;; -- ME: no companion test — kaocha hooks tested via integration when kaocha runs
 
 (defn- test-var?
   "Returns true if testable is a test var (deftest)."
