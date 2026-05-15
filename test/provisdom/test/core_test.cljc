@@ -239,9 +239,9 @@
     (vec (t/data-diff {:a 1} {:a 2}))))
 
 #?(:clj
-   ;; fspec-data converts an s/fdef form to a map keyed by :args, :ret -- ME
+   ;; fspec-data converts an s/fdef form to a map keyed by :args, :ret, :fn -- ME
    (t/deftest fspec-data-test
-     (t/is= #{:args :ret} (set (keys (t/fspec-data `my-add))))))
+     (t/is= #{:args :ret :fn} (set (keys (t/fspec-data `my-add))))))
 
 ;; get-failed-args reads from the failed-args-store atom -- ME
 (t/deftest get-failed-args-test
